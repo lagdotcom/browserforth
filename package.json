@@ -1,0 +1,33 @@
+{
+	"name": "browserforth",
+	"version": "1.0.0",
+	"description": "A Forth bridge for the browser!",
+	"main": "src/main.ts",
+	"scripts": {
+		"build": "webpack -p",
+		"dev": "webpack -d",
+		"start": "webpack-dev-server -d --content-base ./dist --open",
+		"test": "mocha -r esm -r ts-node/register src/**/*.spec.ts"
+	},
+	"author": "Lag.Com <lagdotcom@gmail.com>",
+	"license": "ISC",
+	"devDependencies": {
+		"@types/chai": "^4.2.11",
+		"@types/mocha": "^8.0.0",
+		"chai": "^4.2.0",
+		"css-loader": "^3.6.0",
+		"esm": "^3.2.25",
+		"file-loader": "^6.0.0",
+		"mocha": "^8.0.1",
+		"prettier": "^2.0.5",
+		"source-map-loader": "^1.0.1",
+		"style-loader": "^1.2.1",
+		"ts-loader": "^7.0.5",
+		"ts-node": "^8.10.2",
+		"typescript": "^3.9.7",
+		"webpack": "^4.43.0",
+		"webpack-cli": "^3.3.12",
+		"webpack-dev-server": "^3.11.0"
+	},
+	"dependencies": {}
+}
