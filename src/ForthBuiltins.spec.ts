@@ -1,5 +1,5 @@
-import Forth from './forth';
-import { ForthBuiltins } from './builtins';
+import Forth from './Forth';
+import ForthBuiltins from './ForthBuiltins';
 import { expect } from 'chai';
 
 describe('forth builtins', () => {

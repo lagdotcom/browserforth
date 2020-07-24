@@ -1,4 +1,4 @@
-import Forth from './forth';
+import Forth from './Forth';
 
 describe('forth system', () => {
 	it('should allow 16 or 32 bit forths', () => {

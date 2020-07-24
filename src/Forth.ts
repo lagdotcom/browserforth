@@ -1,15 +1,19 @@
-import { ForthBuiltins } from './builtins';
-import Output from './output/Output';
+import ForthBuiltins from './ForthBuiltins';
+import ForthException from './ForthException';
+import Input from './input/Input';
+import NullInput from './input/NullInput';
 import NullOutput from './output/NullOutput';
+import Output from './output/Output';
 import Stack from './stack/Stack';
 import Stack16 from './stack/Stack16';
 import Stack32 from './stack/Stack32';
 
-const ForthVersion = '0.1.0';
+const ForthVersion = '0.1.1';
 
 interface ForthOptions {
 	cellsize: number;
 	debug: boolean;
+	input: Input;
 	memory: number;
 	output: Output;
 	rstacksize: number;
@@ -43,11 +47,12 @@ export default class Forth {
 	constructor(options: Partial<ForthOptions> = {}) {
 		this.options = {
 			cellsize: options.cellsize || 2,
-			memory: options.memory || 65536,
-			output: options.output || new NullOutput(),
 			debug: typeof options.debug !== 'undefined' ? options.debug : false,
-			stacksize: options.stacksize || 64,
+			input: options.input || new NullInput(),
+			memory: options.memory || 60000,
+			output: options.output || new NullOutput(),
 			rstacksize: options.rstacksize || 64,
+			stacksize: options.stacksize || 64,
 		};
 
 		this.buffer = new ArrayBuffer(this.options.memory);
@@ -91,14 +96,27 @@ export default class Forth {
 		this.options.output.type(`browserforth v${ForthVersion} starting...`);
 
 		ForthBuiltins.attach(this);
+		//ExceptionWords.attach(this);
 	}
 
 	get unused() {
-		return this.rstack.ptop - this.here;
+		return this.rstack.pbottom - this.here;
 	}
 
 	debug(...params: any[]) {
 		if (this.options.debug) console.log(...params);
+	}
+
+	xw(s: string) {
+		const words = this.words();
+		if (words[s]) return this.execute(words[s]);
+
+		throw new Error(`Undefined word: ${s}`);
+	}
+
+	throw(e: ForthException) {
+		// TODO
+		alert(`exception #${e}`);
 	}
 
 	execute(xt: number) {
@@ -121,6 +139,11 @@ export default class Forth {
 			// TODO
 			throw new Error(`dunno how to execute ${xt} yet`);
 		}
+	}
+
+	runString(s: string) {
+		console.log('runString', s);
+		throw new Error('Not implemented');
 	}
 
 	words() {

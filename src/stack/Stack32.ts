@@ -3,27 +3,31 @@ import Stack from './Stack';
 export default class Stack32 implements Stack {
 	mem: DataView;
 	p: number;
-	p0: number;
+	pbottom: number;
 	ptop: number;
 	size: number;
 
 	constructor(mem: DataView, sp0: number, size: number) {
 		this.mem = mem;
 		this.p = sp0;
-		this.p0 = sp0;
-		this.ptop = sp0 - size;
+		this.pbottom = sp0 - size;
+		this.ptop = sp0;
 		this.size = size;
 	}
 
 	get contents() {
 		const stack = [];
 		var addr = this.p;
-		while (addr < this.p0) {
+		while (addr < this.ptop) {
 			stack.unshift(this.mem.getUint32(addr));
 			addr += 4;
 		}
 
 		return stack;
+	}
+
+	clear() {
+		this.p = this.ptop;
 	}
 
 	push(x: number) {
@@ -36,7 +40,7 @@ export default class Stack32 implements Stack {
 	}
 
 	pop() {
-		if (this.p >= this.p0) throw new Error('Stack underflow');
+		if (this.p >= this.ptop) throw new Error('Stack underflow');
 
 		const res = this.mem.getUint32(this.p);
 		this.p += 4;
@@ -44,7 +48,7 @@ export default class Stack32 implements Stack {
 	}
 
 	top() {
-		if (this.p >= this.p0) throw new Error('Stack underflow');
+		if (this.p >= this.ptop) throw new Error('Stack underflow');
 
 		return this.mem.getUint32(this.p);
 	}

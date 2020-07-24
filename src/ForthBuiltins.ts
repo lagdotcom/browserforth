@@ -1,11 +1,19 @@
-import Forth from './forth';
+import Forth from './Forth';
+import ForthException from './ForthException';
 
-export class ForthBuiltins {
+export default class ForthBuiltins {
 	static attach(f: Forth) {
 		f.addVariable('state');
 		f.addVariable('base', 10);
 		f.addConstant('false', 0);
 		f.addConstant('true', -1);
+
+		// some useful internals
+		f.addBuiltin('sp@', this.sptop);
+		f.addBuiltin('sp!', this.spstore);
+		f.addBuiltin('rp@', this.rptop);
+		f.addBuiltin('rp!', this.rpstore);
+
 		f.addBuiltin('-', this.sub);
 		f.addBuiltin(',', this.comma);
 		f.addBuiltin('!', this.store);
@@ -54,6 +62,8 @@ export class ForthBuiltins {
 		f.addBuiltin('drop', this.drop);
 		f.addBuiltin('dup', this.dup);
 		f.addBuiltin('emit', this.emit);
+		f.addBuiltin('key', this.key);
+		f.addBuiltin('key?', this.keyq);
 		f.addBuiltin('nip', this.nip);
 		f.addBuiltin('or', this.or);
 		f.addBuiltin('over', this.over);
@@ -176,6 +186,9 @@ export class ForthBuiltins {
 	static div(f: Forth) {
 		const n2 = f.stack.pop();
 		const n1 = f.stack.pop();
+
+		if (n2 == 0) return f.throw(ForthException.divzero);
+
 		f.stack.push(n1 / n2);
 	}
 
@@ -183,6 +196,9 @@ export class ForthBuiltins {
 		const n3 = f.stack.pop();
 		const n2 = f.stack.pop();
 		const n1 = f.stack.pop();
+
+		if (n3 == 0) return f.throw(ForthException.divzero);
+
 		f.stack.push((n1 * n2) / n3);
 	}
 
@@ -190,6 +206,9 @@ export class ForthBuiltins {
 		const n3 = f.stack.pop();
 		const n2 = f.stack.pop();
 		const n1 = f.stack.pop();
+
+		if (n3 == 0) return f.throw(ForthException.divzero);
+
 		const product = n1 * n2;
 		f.stack.push(product % n3);
 		f.stack.push(product / n3);
@@ -198,6 +217,9 @@ export class ForthBuiltins {
 	static divmod(f: Forth) {
 		const n2 = f.stack.pop();
 		const n1 = f.stack.pop();
+
+		if (n2 == 0) return f.throw(ForthException.divzero);
+
 		f.stack.push(n1 % n2);
 		f.stack.push(n1 / n2);
 	}
@@ -331,5 +353,42 @@ export class ForthBuiltins {
 
 	static unused(f: Forth) {
 		f.stack.push(f.unused);
+	}
+
+	static async key(f: Forth) {
+		return f.options.input.key().then(
+			e => {
+				// TODO: deprecated
+				f.stack.push(e.charCode);
+			},
+			() => {
+				// TODO: throw?
+				f.stack.push(0);
+			}
+		);
+	}
+
+	static keyq(f: Forth) {
+		f.stack.pushf(f.options.input.keyq);
+	}
+
+	static throw(f: Forth) {
+		f.throw(f.signed(f.stack.pop()));
+	}
+
+	static sptop(f: Forth) {
+		f.stack.push(f.stack.ptop);
+	}
+
+	static spstore(f: Forth) {
+		f.stack.p = f.stack.pop();
+	}
+
+	static rptop(f: Forth) {
+		f.stack.push(f.rstack.ptop);
+	}
+
+	static rpstore(f: Forth) {
+		f.rstack.p = f.stack.pop();
 	}
 }
