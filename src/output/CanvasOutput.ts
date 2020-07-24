@@ -33,6 +33,8 @@ export default class CanvasOutput implements Output {
 	bg: string;
 	cols: number;
 	ctx: CanvasRenderingContext2D;
+	chh: number;
+	cwh: number;
 	el: HTMLCanvasElement;
 	fg: string;
 	options: CanvasOptions;
@@ -51,6 +53,8 @@ export default class CanvasOutput implements Output {
 		};
 		this.cols = Math.floor(this.options.width / this.options.cellw);
 		this.rows = Math.floor(this.options.height / this.options.cellh);
+		this.cwh = Math.floor(this.options.cellw / 2);
+		this.chh = Math.floor(this.options.cellh / 2);
 
 		this.el = document.createElement('canvas');
 		this.el.width = this.options.width;
@@ -65,11 +69,18 @@ export default class CanvasOutput implements Output {
 		document.body.append(this.el);
 
 		ctx.font = `${this.options.fontsize}px ${this.options.fontfamily}`;
+		ctx.textAlign = 'center';
+		ctx.textBaseline = 'middle';
 
 		this.bg = consoleColours[0];
 		this.fg = consoleColours[7];
 		this.tx = 0;
 		this.ty = 0;
+	}
+
+	cr() {
+		this.tx = 0;
+		this.ty++;
 	}
 
 	emit(ch: string) {
@@ -91,8 +102,7 @@ export default class CanvasOutput implements Output {
 			const ch = str[i];
 
 			if (ch === '\n') {
-				this.tx = 0;
-				this.ty++;
+				this.cr();
 				continue;
 			}
 
@@ -102,7 +112,7 @@ export default class CanvasOutput implements Output {
 	}
 
 	private charat(tx: number, ty: number, ch: string, fg: string, bg: string) {
-		const { ctx, options } = this;
+		const { ctx, cwh, chh, options } = this;
 		const { cellw, cellh } = options;
 		const x = tx * cellw,
 			y = ty * cellh;
@@ -115,6 +125,6 @@ export default class CanvasOutput implements Output {
 		// ctx.strokeRect(x, y, cellw, cellh);
 
 		ctx.fillStyle = fg;
-		ctx.fillText(ch, x, y + this.options.fontsize);
+		ctx.fillText(ch, x + cwh, y + chh);
 	}
 }

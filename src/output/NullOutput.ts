@@ -9,6 +9,7 @@ export default class NullOutput implements Output {
 		this.rows = 25;
 	}
 
+	cr() {}
 	emit(ch: string) {}
 	goto(x: number, y: number) {}
 	type(str: string) {}

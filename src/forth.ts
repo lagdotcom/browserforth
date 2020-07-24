@@ -1,6 +1,9 @@
 import { ForthBuiltins } from './builtins';
 import Output from './output/Output';
 import NullOutput from './output/NullOutput';
+import Stack from './stack/Stack';
+import Stack16 from './stack/Stack16';
+import Stack32 from './stack/Stack32';
 
 const ForthVersion = '0.1.0';
 
@@ -9,6 +12,8 @@ interface ForthOptions {
 	debug: boolean;
 	memory: number;
 	output: Output;
+	rstacksize: number;
+	stacksize: number;
 }
 
 type ForthBuiltin = (f: Forth) => void;
@@ -30,10 +35,9 @@ export default class Forth {
 	private link: number;
 	mem: DataView;
 	options: ForthOptions;
-	pop: () => number;
-	push: (x: number) => void;
-	private sp: number;
-	private sp0: number;
+	rstack: Stack;
+	signed: (x: number) => number;
+	stack: Stack;
 	store: (addr: number, x: number) => number;
 
 	constructor(options: Partial<ForthOptions> = {}) {
@@ -42,6 +46,8 @@ export default class Forth {
 			memory: options.memory || 65536,
 			output: options.output || new NullOutput(),
 			debug: typeof options.debug !== 'undefined' ? options.debug : false,
+			stacksize: options.stacksize || 64,
+			rstacksize: options.rstacksize || 64,
 		};
 
 		this.buffer = new ArrayBuffer(this.options.memory);
@@ -49,18 +55,36 @@ export default class Forth {
 		this.mem = new DataView(this.buffer);
 		this.here = 0;
 		this.link = 0;
-		this.sp0 = this.options.memory;
-		this.sp = this.sp0;
 
 		if (this.options.cellsize == 2) {
+			this.stack = new Stack16(
+				this.mem,
+				this.options.memory,
+				this.options.stacksize
+			);
+			this.rstack = new Stack16(
+				this.mem,
+				this.options.memory - this.options.stacksize,
+				this.options.rstacksize
+			);
+
 			this.fetch = this.fetch16;
-			this.push = this.push16;
-			this.pop = this.pop16;
+			this.signed = this.signed16;
 			this.store = this.store16;
 		} else if (this.options.cellsize == 4) {
+			this.stack = new Stack32(
+				this.mem,
+				this.options.memory,
+				this.options.stacksize
+			);
+			this.rstack = new Stack32(
+				this.mem,
+				this.options.memory - this.options.stacksize,
+				this.options.rstacksize
+			);
+
 			this.fetch = this.fetch32;
-			this.push = this.push32;
-			this.pop = this.pop32;
+			this.signed = this.signed32;
 			this.store = this.store32;
 		} else throw new Error('Invalid cell size');
 
@@ -69,15 +93,8 @@ export default class Forth {
 		ForthBuiltins.attach(this);
 	}
 
-	get stack() {
-		const stack = [];
-		var addr = this.sp;
-		while (addr < this.sp0) {
-			stack.unshift(this.fetch(addr));
-			addr += this.options.cellsize;
-		}
-
-		return stack;
+	get unused() {
+		return this.rstack.ptop - this.here;
 	}
 
 	debug(...params: any[]) {
@@ -97,9 +114,9 @@ export default class Forth {
 		if (winfo.flags & HeaderFlags.IsBuiltin) {
 			this.builtins[data](this);
 		} else if (winfo.flags & HeaderFlags.IsConstant) {
-			this.push(data);
+			this.stack.push(data);
 		} else if (winfo.flags & HeaderFlags.IsVariable) {
-			this.push(data);
+			this.stack.push(data);
 		} else {
 			// TODO
 			throw new Error(`dunno how to execute ${xt} yet`);
@@ -191,17 +208,8 @@ export default class Forth {
 		return this.mem.getUint16(addr);
 	}
 
-	push16(x: number) {
-		this.sp -= 2;
-		return this.mem.setUint16(this.sp, x);
-	}
-
-	pop16() {
-		if (this.sp >= this.sp0) throw new Error('Stack underflow');
-
-		const res = this.mem.getUint16(this.sp);
-		this.sp += 2;
-		return res;
+	signed16(x: number) {
+		return new Int16Array([x])[0];
 	}
 
 	store16(addr: number, x: number) {
@@ -213,17 +221,8 @@ export default class Forth {
 		return this.mem.getUint32(addr);
 	}
 
-	push32(x: number) {
-		this.sp -= 4;
-		return this.mem.setUint32(this.sp, x);
-	}
-
-	pop32() {
-		if (this.sp >= this.sp0) throw new Error('Stack underflow');
-
-		const res = this.mem.getUint32(this.sp);
-		this.sp += 4;
-		return res;
+	signed32(x: number) {
+		return new Int32Array([x])[0];
 	}
 
 	store32(addr: number, x: number) {
