@@ -423,16 +423,20 @@ export default class ForthBuiltins {
 	}
 
 	// TODO: this kinda sucks
-	static evaluate(f: Forth) {
+	static async evaluate(f: Forth) {
 		var len = f.stack.pop();
 		var addr = f.stack.pop();
 		var current = '';
 		var exit = false;
+		var blocking = Promise.resolve();
 
-		const run = () => {
+		const run = async () => {
 			if (current) {
 				if (f.words[current.toLowerCase()]) {
-					f.xw(current);
+					const result = f.xw(current);
+					if (result) {
+						await result;
+					}
 				} else {
 					const base = f.fetch(ForthBuiltins.base);
 					const value = parseInt(current, base);
@@ -452,14 +456,14 @@ export default class ForthBuiltins {
 		while (len > 0) {
 			const ch = String.fromCharCode(f.fetch8(addr));
 			if (ch == ' ' || ch == '\r' || ch == '\n' || ch == '\t') {
-				run();
+				await run();
 			} else {
 				current += ch;
 			}
 
 			if (exit) break;
-
 			addr++;
+
 			len--;
 		}
 		run();

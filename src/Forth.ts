@@ -20,7 +20,7 @@ interface ForthOptions {
 	stacksize: number;
 }
 
-type ForthBuiltin = (f: Forth) => void;
+type ForthBuiltin = (f: Forth) => Promise<void> | void;
 
 export enum HeaderFlags {
 	LengthMask = 0x00ff,
@@ -163,7 +163,7 @@ export default class Forth {
 		this.debug('execute:', winfo.name);
 
 		if (winfo.flags & HeaderFlags.IsBuiltin) {
-			this.builtins[data](this);
+			return this.builtins[data](this);
 		} else if (winfo.flags & HeaderFlags.IsConstant) {
 			this.stack.push(data);
 		} else if (winfo.flags & HeaderFlags.IsVariable) {
