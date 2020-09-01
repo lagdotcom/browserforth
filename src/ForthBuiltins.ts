@@ -1,14 +1,20 @@
 import Forth from './Forth';
 import ForthException from './ForthException';
 
+const digits = '0123456789abcdefghijklmnopqrstuvwxyz';
+
 export default class ForthBuiltins {
+	static base: number;
+
 	static attach(f: Forth) {
-		f.addVariable('state');
-		f.addVariable('base', 10);
+		f.addVariable('state', 0);
+		ForthBuiltins.base = f.addVariable('base', 10);
+		f.addVariable('>in', 0);
 		f.addConstant('false', 0);
 		f.addConstant('true', -1);
 
 		// some useful internals
+		f.addBuiltin('latestxt', this.latestxt);
 		f.addBuiltin('sp@', this.sptop);
 		f.addBuiltin('sp!', this.spstore);
 		f.addBuiltin('rp@', this.rptop);
@@ -18,7 +24,9 @@ export default class ForthBuiltins {
 		f.addBuiltin(',', this.comma);
 		f.addBuiltin('!', this.store);
 		f.addBuiltin('?dup', this.qdup);
+		f.addBuiltin('.', this.dot);
 		// f.addBuiltin('."', this.showstring);
+		f.addBuiltin('.s', this.showstack);
 		// f.addBuiltin("'", this.quote);
 		// f.addBuiltin('(', this.comment);
 		f.addBuiltin('@', this.fetch);
@@ -53,6 +61,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('2dup', this.dup2);
 		// f.addBuiltin('2over', this.over2);
 		f.addBuiltin('2swap', this.swap2);
+		f.addBuiltin('allot', this.allot);
 		f.addBuiltin('and', this.and);
 		f.addBuiltin('at-xy', this.atxy);
 		f.addBuiltin('c,', this.ccomma);
@@ -62,6 +71,8 @@ export default class ForthBuiltins {
 		f.addBuiltin('drop', this.drop);
 		f.addBuiltin('dup', this.dup);
 		f.addBuiltin('emit', this.emit);
+		f.addBuiltin('execute', this.execute);
+		f.addBuiltin('here', this.here);
 		f.addBuiltin('key', this.key);
 		f.addBuiltin('key?', this.keyq);
 		f.addBuiltin('nip', this.nip);
@@ -72,9 +83,12 @@ export default class ForthBuiltins {
 		f.addBuiltin('rot', this.rot);
 		f.addBuiltin('swap', this.swap);
 		f.addBuiltin('type', this.type);
+		f.addBuiltin('u.', this.udot);
 		f.addBuiltin('unused', this.unused);
 		f.addBuiltin('within', this.within);
 		f.addBuiltin('xor', this.xor);
+
+		f.addBuiltin('evaluate', this.evaluate);
 	}
 
 	static dup(f: Forth) {
@@ -390,5 +404,85 @@ export default class ForthBuiltins {
 
 	static rpstore(f: Forth) {
 		f.rstack.p = f.stack.pop();
+	}
+
+	static here(f: Forth) {
+		f.stack.push(f.here);
+	}
+
+	static allot(f: Forth) {
+		f.here += f.stack.pop();
+	}
+
+	static latestxt(f: Forth) {
+		f.stack.push(f.link + f.options.cellsize);
+	}
+
+	static execute(f: Forth) {
+		f.execute(f.stack.pop());
+	}
+
+	// TODO: this kinda sucks
+	static evaluate(f: Forth) {
+		var len = f.stack.pop();
+		var addr = f.stack.pop();
+		var current = '';
+		var exit = false;
+
+		const run = () => {
+			if (current) {
+				if (f.words[current.toLowerCase()]) {
+					f.xw(current);
+				} else {
+					const base = f.fetch(ForthBuiltins.base);
+					const value = parseInt(current, base);
+					if (isNaN(value)) {
+						// TODO
+						console.log('could not parse:', current);
+						exit = true;
+					} else {
+						f.stack.push(value);
+					}
+				}
+
+				current = '';
+			}
+		};
+
+		while (len > 0) {
+			const ch = String.fromCharCode(f.fetch8(addr));
+			if (ch == ' ' || ch == '\r' || ch == '\n' || ch == '\t') {
+				run();
+			} else {
+				current += ch;
+			}
+
+			if (exit) break;
+
+			addr++;
+			len--;
+		}
+		run();
+	}
+
+	static udot(f: Forth) {
+		const base = f.fetch(ForthBuiltins.base);
+		const value = f.stack.pop();
+		f.options.output.type(value.toString(base) + ' ');
+	}
+
+	static dot(f: Forth) {
+		const base = f.fetch(ForthBuiltins.base);
+		const value = f.signed(f.stack.pop());
+		f.options.output.type(value.toString(base) + ' ');
+	}
+
+	static showstack(f: Forth) {
+		const base = f.fetch(ForthBuiltins.base);
+		f.options.output.type(`<${f.stack.contents.length.toString(base)}> `);
+
+		f.stack.contents.forEach(n =>
+			f.options.output.type(f.signed(n).toString(base) + ' ')
+		);
 	}
 }

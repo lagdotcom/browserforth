@@ -35,14 +35,14 @@ export default class Forth {
 	private buffer: ArrayBuffer;
 	private builtins: ForthBuiltin[];
 	fetch: (addr: number) => number;
-	private here: number;
-	private link: number;
 	mem: DataView;
 	options: ForthOptions;
 	rstack: Stack;
 	signed: (x: number) => number;
 	stack: Stack;
 	store: (addr: number, x: number) => number;
+	sys: { [name: string]: number };
+	syso: number;
 
 	constructor(options: Partial<ForthOptions> = {}) {
 		this.options = {
@@ -58,8 +58,6 @@ export default class Forth {
 		this.buffer = new ArrayBuffer(this.options.memory);
 		this.builtins = [];
 		this.mem = new DataView(this.buffer);
-		this.here = 0;
-		this.link = 0;
 
 		if (this.options.cellsize == 2) {
 			this.stack = new Stack16(
@@ -93,14 +91,49 @@ export default class Forth {
 			this.store = this.store32;
 		} else throw new Error('Invalid cell size');
 
-		this.options.output.type(`browserforth v${ForthVersion} starting...`);
+		this.options.output.type(`browserforth v${ForthVersion} starting...\n`);
+
+		// base system definitions
+		this.sys = {};
+		this.syso = 0;
+		this.allocSysVar('dp');
+		this.allocSysVar('link');
+		this.addSysVars();
 
 		ForthBuiltins.attach(this);
 		//ExceptionWords.attach(this);
 	}
 
+	get here() {
+		return this.fetch(this.sys.dp);
+	}
+
+	set here(x: number) {
+		this.store(this.sys.dp, x);
+	}
+
+	get link() {
+		return this.fetch(this.sys.link);
+	}
+
+	set link(x: number) {
+		this.store(this.sys.link, x);
+	}
+
 	get unused() {
 		return this.rstack.pbottom - this.here;
+	}
+
+	private allocSysVar(name: string) {
+		this.sys[name] = this.syso;
+		this.syso += this.options.cellsize;
+	}
+
+	private addSysVars() {
+		this.here = this.syso;
+		for (var name in this.sys) {
+			this.addVariable(name, 0, this.sys[name]);
+		}
 	}
 
 	debug(...params: any[]) {
@@ -108,7 +141,7 @@ export default class Forth {
 	}
 
 	xw(s: string) {
-		const words = this.words();
+		const words = this.words;
 		if (words[s]) return this.execute(words[s]);
 
 		throw new Error(`Undefined word: ${s}`);
@@ -120,7 +153,7 @@ export default class Forth {
 	}
 
 	execute(xt: number) {
-		const winfo = this.wordinfo(xt - this.options.cellsize);
+		const winfo = this.wordinfo(xt);
 		const data = this.fetch(winfo.cfa);
 
 		if (!(winfo.flags & HeaderFlags.IsWord)) {
@@ -142,16 +175,20 @@ export default class Forth {
 	}
 
 	runString(s: string) {
-		console.log('runString', s);
-		throw new Error('Not implemented');
+		const addr = this.here + 1000;
+		const saddr = this.writeStringAt(addr, s);
+
+		this.stack.push(saddr);
+		this.stack.push(s.length);
+		this.xw('evaluate');
 	}
 
-	words() {
+	get words() {
 		const wordlist: { [name: string]: number } = {};
 
 		var link = this.link;
 		while (link) {
-			const winfo = this.wordinfo(link);
+			const winfo = this.wordinfo(link + this.options.cellsize);
 			wordlist[winfo.name] = winfo.xt;
 
 			link = winfo.link;
@@ -160,11 +197,11 @@ export default class Forth {
 		return wordlist;
 	}
 
-	wordinfo(addr: number) {
+	wordinfo(xt: number) {
 		const { cellsize } = this.options;
 
-		const link = this.fetch(addr);
-		const xt = addr + cellsize;
+		const lfa = xt - cellsize;
+		const link = this.fetch(lfa);
 
 		const lenflags = this.fetch(xt);
 		const len = lenflags & HeaderFlags.LengthMask;
@@ -172,7 +209,7 @@ export default class Forth {
 		const name = this.readString(xt + cellsize, len);
 		const cfa = xt + cellsize + (lenflags & HeaderFlags.LengthMask);
 
-		return { link, xt, len, flags, name, cfa };
+		return { lfa, link, xt, len, flags, name, cfa };
 	}
 
 	addBuiltin(name: string, b: ForthBuiltin) {
@@ -192,13 +229,17 @@ export default class Forth {
 		this.write(value);
 	}
 
-	addVariable(name: string, initial: number = 0) {
-		this.debug('variable:', name, initial);
+	addVariable(name: string, initial: number = 0, org?: number) {
+		this.debug('variable:', name, initial, org);
 
-		const org = this.here;
-		this.write(initial);
+		if (typeof org === 'undefined') {
+			org = this.here;
+			this.write(initial);
+		}
+
 		this.header(name, HeaderFlags.IsVariable);
 		this.write(org);
+		return org;
 	}
 
 	readString(addr: number, len: number) {
@@ -207,8 +248,18 @@ export default class Forth {
 	}
 
 	writeString(str: string, override?: number) {
-		this.write(typeof override === 'undefined' ? str.length : override);
+		const length = typeof override === 'undefined' ? str.length : override;
+		this.write(length);
 		for (var i = 0; i < str.length; i++) this.write8(str.charCodeAt(i));
+	}
+
+	writeStringAt(addr: number, str: string, override?: number) {
+		const length = typeof override === 'undefined' ? str.length : override;
+		const start = this.store(addr, length);
+		for (var i = 0; i < str.length; i++)
+			this.store8(start + i, str.charCodeAt(i));
+
+		return start;
 	}
 
 	header(name: string, flags: HeaderFlags) {
@@ -225,6 +276,14 @@ export default class Forth {
 	write8(x: number) {
 		this.mem.setUint8(this.here, x);
 		this.here++;
+	}
+
+	fetch8(addr: number) {
+		return this.mem.getUint8(addr);
+	}
+
+	store8(addr: number, x: number) {
+		this.mem.setUint8(addr, x);
 	}
 
 	fetch16(addr: number) {
