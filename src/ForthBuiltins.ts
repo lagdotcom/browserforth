@@ -32,7 +32,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('!', this.store);
 		f.addBuiltin('?dup', this.qdup);
 		f.addBuiltin('.', this.dot);
-		// f.addBuiltin('."', this.showstring);
+		f.addBuiltin('."', this.dotquote);
 		f.addBuiltin('.s', this.showstack);
 		// f.addBuiltin("'", this.quote);
 		// f.addBuiltin('(', this.comment);
@@ -451,7 +451,7 @@ export default class ForthBuiltins {
 					const value = parseInt(current, base());
 					if (isNaN(value)) {
 						// TODO
-						console.log('could not parse:', current);
+						f.options.output.type(`parsing error: ${current}\n`);
 						exit = true;
 					} else {
 						f.stack.push(value);
@@ -464,14 +464,14 @@ export default class ForthBuiltins {
 
 		while (toIn() < sourceLen()) {
 			const ch = String.fromCharCode(f.fetch8(sourceAddr() + toIn()));
+			toIn(toIn() + 1);
+
 			if (ch == ' ' || ch == '\r' || ch == '\n' || ch == '\t') {
 				await handle();
+				if (exit) break;
 			} else {
 				current += ch;
 			}
-
-			if (exit) break;
-			toIn(toIn() + 1);
 		}
 		handle();
 
@@ -497,5 +497,24 @@ export default class ForthBuiltins {
 		f.stack.contents.forEach(n =>
 			f.options.output.type(f.signed(n).toString(base) + ' ')
 		);
+	}
+
+	static dotquote(f: Forth) {
+		const { sourceAddr, sourceLen, toIn } = ForthBuiltins;
+		var current = '';
+
+		while (toIn() < sourceLen()) {
+			const ch = String.fromCharCode(f.fetch8(sourceAddr() + toIn()));
+			toIn(toIn() + 1);
+
+			if (ch == '"') {
+				f.options.output.type(current);
+				return;
+			}
+			current += ch;
+		}
+
+		// TODO
+		f.options.output.type('mismatched quote\n');
 	}
 }
