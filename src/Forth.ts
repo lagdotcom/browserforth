@@ -31,6 +31,8 @@ export enum HeaderFlags {
 	IsImmediate = 0x8000,
 }
 
+export type GetterSetter<T> = (x?: T) => T;
+
 export default class Forth {
 	private buffer: ArrayBuffer;
 	private builtins: ForthBuiltin[];
@@ -229,7 +231,11 @@ export default class Forth {
 		this.write(value);
 	}
 
-	addVariable(name: string, initial: number = 0, org?: number) {
+	addVariable(
+		name: string,
+		initial: number = 0,
+		org?: number
+	): GetterSetter<number> {
 		this.debug('variable:', name, initial, org);
 
 		if (typeof org === 'undefined') {
@@ -237,9 +243,13 @@ export default class Forth {
 			this.write(initial);
 		}
 
+		const addr = org;
 		this.header(name, HeaderFlags.IsVariable);
 		this.write(org);
-		return org;
+		return (n?: number) => {
+			if (typeof n === 'number') this.store(addr, n);
+			return this.fetch(addr);
+		};
 	}
 
 	readString(addr: number, len: number) {

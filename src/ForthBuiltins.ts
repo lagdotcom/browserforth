@@ -1,15 +1,22 @@
-import Forth from './Forth';
+import Forth, { GetterSetter } from './Forth';
 import ForthException from './ForthException';
 
-const digits = '0123456789abcdefghijklmnopqrstuvwxyz';
-
 export default class ForthBuiltins {
-	static base: number;
+	static base: GetterSetter<number>;
+	static sourceAddr: GetterSetter<number>;
+	static sourceId: GetterSetter<number>;
+	static sourceLen: GetterSetter<number>;
+	static state: GetterSetter<number>;
+	static toIn: GetterSetter<number>;
 
 	static attach(f: Forth) {
-		f.addVariable('state', 0);
+		ForthBuiltins.state = f.addVariable('state', 0);
 		ForthBuiltins.base = f.addVariable('base', 10);
-		f.addVariable('>in', 0);
+		ForthBuiltins.sourceAddr = f.addVariable('source-addr', 0);
+		ForthBuiltins.sourceId = f.addVariable('source-id', 0);
+		ForthBuiltins.sourceLen = f.addVariable('source-len', 0);
+		ForthBuiltins.toIn = f.addVariable('>in', 0);
+
 		f.addConstant('false', 0);
 		f.addConstant('true', -1);
 
@@ -422,15 +429,18 @@ export default class ForthBuiltins {
 		f.execute(f.stack.pop());
 	}
 
-	// TODO: this kinda sucks
+	// TODO: this kinda sucks, still
 	static async evaluate(f: Forth) {
-		var len = f.stack.pop();
-		var addr = f.stack.pop();
+		const { base, sourceAddr, sourceLen, sourceId, toIn } = ForthBuiltins;
+		sourceLen(f.stack.pop());
+		sourceAddr(f.stack.pop());
+		sourceId(-1);
+		toIn(0);
+
 		var current = '';
 		var exit = false;
-		var blocking = Promise.resolve();
 
-		const run = async () => {
+		const handle = async () => {
 			if (current) {
 				if (f.words[current.toLowerCase()]) {
 					const result = f.xw(current);
@@ -438,8 +448,7 @@ export default class ForthBuiltins {
 						await result;
 					}
 				} else {
-					const base = f.fetch(ForthBuiltins.base);
-					const value = parseInt(current, base);
+					const value = parseInt(current, base());
 					if (isNaN(value)) {
 						// TODO
 						console.log('could not parse:', current);
@@ -453,36 +462,36 @@ export default class ForthBuiltins {
 			}
 		};
 
-		while (len > 0) {
-			const ch = String.fromCharCode(f.fetch8(addr));
+		while (toIn() < sourceLen()) {
+			const ch = String.fromCharCode(f.fetch8(sourceAddr() + toIn()));
 			if (ch == ' ' || ch == '\r' || ch == '\n' || ch == '\t') {
-				await run();
+				await handle();
 			} else {
 				current += ch;
 			}
 
 			if (exit) break;
-			addr++;
-
-			len--;
+			toIn(toIn() + 1);
 		}
-		run();
+		handle();
+
+		sourceId(0);
 	}
 
 	static udot(f: Forth) {
-		const base = f.fetch(ForthBuiltins.base);
+		const base = ForthBuiltins.base();
 		const value = f.stack.pop();
 		f.options.output.type(value.toString(base) + ' ');
 	}
 
 	static dot(f: Forth) {
-		const base = f.fetch(ForthBuiltins.base);
+		const base = ForthBuiltins.base();
 		const value = f.signed(f.stack.pop());
 		f.options.output.type(value.toString(base) + ' ');
 	}
 
 	static showstack(f: Forth) {
-		const base = f.fetch(ForthBuiltins.base);
+		const base = ForthBuiltins.base();
 		f.options.output.type(`<${f.stack.contents.length.toString(base)}> `);
 
 		f.stack.contents.forEach(n =>
