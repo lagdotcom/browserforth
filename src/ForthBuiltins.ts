@@ -1,6 +1,10 @@
 import Forth, { GetterSetter } from './Forth';
 import ForthException from './ForthException';
 
+function isWhitespace(ch: string) {
+	return ch == ' ' || ch == '\r' || ch == '\n' || ch == '\t';
+}
+
 export default class ForthBuiltins {
 	static base: GetterSetter<number>;
 	static sourceAddr: GetterSetter<number>;
@@ -34,8 +38,8 @@ export default class ForthBuiltins {
 		f.addBuiltin('.', this.dot);
 		f.addBuiltin('."', this.dotquote);
 		f.addBuiltin('.s', this.showstack);
-		// f.addBuiltin("'", this.quote);
-		// f.addBuiltin('(', this.comment);
+		f.addBuiltin("'", this.quote);
+		f.addBuiltin('(', this.comment);
 		f.addBuiltin('@', this.fetch);
 		f.addBuiltin('*', this.mul);
 		f.addBuiltin('*/', this.muldiv);
@@ -88,6 +92,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('r@', this.rpeek);
 		f.addBuiltin('r>', this.fromr);
 		f.addBuiltin('rot', this.rot);
+		f.addBuiltin('source', this.source);
 		f.addBuiltin('swap', this.swap);
 		f.addBuiltin('type', this.type);
 		f.addBuiltin('u.', this.udot);
@@ -466,7 +471,7 @@ export default class ForthBuiltins {
 			const ch = String.fromCharCode(f.fetch8(sourceAddr() + toIn()));
 			toIn(toIn() + 1);
 
-			if (ch == ' ' || ch == '\r' || ch == '\n' || ch == '\t') {
+			if (isWhitespace(ch)) {
 				await handle();
 				if (exit) break;
 			} else {
@@ -516,5 +521,53 @@ export default class ForthBuiltins {
 
 		// TODO
 		f.options.output.type('mismatched quote\n');
+	}
+
+	static source(f: Forth) {
+		const { sourceAddr, sourceLen } = ForthBuiltins;
+		f.stack.push(sourceAddr());
+		f.stack.push(sourceLen());
+	}
+
+	static quote(f: Forth) {
+		const { sourceAddr, sourceLen, toIn } = ForthBuiltins;
+		var current = '';
+
+		while (toIn() < sourceLen()) {
+			const ch = String.fromCharCode(f.fetch8(sourceAddr() + toIn()));
+			toIn(toIn() + 1);
+
+			if (current && isWhitespace(ch)) break;
+			current += ch;
+		}
+
+		if (current) {
+			const xt = f.words[current.toLowerCase()];
+			if (!xt) {
+				// TODO
+				f.options.output.type(`not defined: ${current}\n`);
+				return;
+			}
+
+			f.stack.push(xt);
+			return;
+		}
+
+		// TODO
+		f.options.output.type("invalid use of '\n");
+	}
+
+	static comment(f: Forth) {
+		const { sourceAddr, sourceLen, toIn } = ForthBuiltins;
+
+		while (toIn() < sourceLen()) {
+			const ch = String.fromCharCode(f.fetch8(sourceAddr() + toIn()));
+			toIn(toIn() + 1);
+
+			if (ch == ')') return;
+		}
+
+		// TODO
+		f.options.output.type('mismatched (\n');
 	}
 }

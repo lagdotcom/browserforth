@@ -1,48 +1,53 @@
-import Forth from './Forth';
+import Forth, { ForthBuiltin } from './Forth';
 import ForthBuiltins from './ForthBuiltins';
 import { expect } from 'chai';
 
 describe('forth builtins', () => {
-	it('should dup', () => {
+	function stackTest(fn: ForthBuiltin, inputs: number[], outputs: number[]) {
 		const f = new Forth();
-		f.stack.push(10);
-		ForthBuiltins.dup(f);
-		expect(f.stack.pop()).to.equal(10);
-		expect(f.stack.pop()).to.equal(10);
+		inputs.forEach(i => f.stack.push(i));
+		fn(f);
+		outputs.reverse().forEach(o => expect(f.signed(f.stack.pop())).to.equal(o));
+		expect(f.stack.contents.length).to.equal(0);
+	}
+
+	it('should dup', () => {
+		stackTest(ForthBuiltins.dup, [1], [1, 1]);
+	});
+
+	it('should ?dup', () => {
+		stackTest(ForthBuiltins.qdup, [-1], [-1, -1]);
+		stackTest(ForthBuiltins.qdup, [0], [0]);
+		stackTest(ForthBuiltins.qdup, [1], [1, 1]);
 	});
 
 	it('should drop', () => {
-		const f = new Forth();
-		f.stack.push(10);
-		f.stack.push(20);
-		ForthBuiltins.drop(f);
-		expect(f.stack.pop()).to.equal(10);
+		stackTest(ForthBuiltins.drop, [1, 2], [1]);
+		stackTest(ForthBuiltins.drop, [0], []);
 	});
 
 	it('should add', () => {
-		const f = new Forth();
-		f.stack.push(2);
-		f.stack.push(3);
-		ForthBuiltins.add(f);
-		expect(f.stack.pop()).to.equal(5);
-
-		f.stack.push(-2);
-		f.stack.push(-3);
-		ForthBuiltins.add(f);
-		expect(f.signed(f.stack.pop())).to.equal(-5);
+		stackTest(ForthBuiltins.add, [0, 5], [5]);
+		stackTest(ForthBuiltins.add, [5, 0], [5]);
+		stackTest(ForthBuiltins.add, [0, -5], [-5]);
+		stackTest(ForthBuiltins.add, [-5, 0], [-5]);
+		stackTest(ForthBuiltins.add, [1, 2], [3]);
+		stackTest(ForthBuiltins.add, [1, -2], [-1]);
+		stackTest(ForthBuiltins.add, [-1, 2], [1]);
+		stackTest(ForthBuiltins.add, [-1, -2], [-3]);
+		stackTest(ForthBuiltins.add, [-1, 1], [0]);
 	});
 
 	it('should subtract', () => {
-		const f = new Forth();
-		f.stack.push(5);
-		f.stack.push(3);
-		ForthBuiltins.sub(f);
-		expect(f.stack.pop()).to.equal(2);
-
-		f.stack.push(-4);
-		f.stack.push(-8);
-		ForthBuiltins.sub(f);
-		expect(f.stack.pop()).to.equal(4);
+		stackTest(ForthBuiltins.sub, [0, 5], [-5]);
+		stackTest(ForthBuiltins.sub, [5, 0], [5]);
+		stackTest(ForthBuiltins.sub, [0, -5], [5]);
+		stackTest(ForthBuiltins.sub, [-5, 0], [-5]);
+		stackTest(ForthBuiltins.sub, [1, 2], [-1]);
+		stackTest(ForthBuiltins.sub, [1, -2], [3]);
+		stackTest(ForthBuiltins.sub, [-1, 2], [-3]);
+		stackTest(ForthBuiltins.sub, [-1, -2], [1]);
+		stackTest(ForthBuiltins.sub, [0, 1], [-1]);
 	});
 
 	it('should do >r r@ r>', () => {

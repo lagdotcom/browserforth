@@ -20,7 +20,7 @@ interface ForthOptions {
 	stacksize: number;
 }
 
-type ForthBuiltin = (f: Forth) => Promise<void> | void;
+export type ForthBuiltin = (f: Forth) => Promise<void> | void;
 
 export enum HeaderFlags {
 	LengthMask = 0x00ff,
