@@ -1,5 +1,3 @@
-const path = require('path');
-
 module.exports = {
 	entry: './src/main',
 	plugins: [],
@@ -7,7 +5,7 @@ module.exports = {
 		path: __dirname + '/dist',
 		filename: 'main.js',
 	},
-	devtool: 'source-map',
+	devtool: 'eval-source-map',
 	resolve: {
 		extensions: ['.ts', '.tsx', '.js'],
 	},
@@ -20,7 +18,7 @@ module.exports = {
 			},
 			{
 				test: /\.css$/,
-				loader: ['style-loader', 'css-loader'],
+				use: ['style-loader', 'css-loader'],
 			},
 			{ test: /\.tsx?$/, loader: 'ts-loader' },
 		],

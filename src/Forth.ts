@@ -254,7 +254,8 @@ export default class Forth {
 
 	readString(addr: number, len: number) {
 		const slice = this.buffer.slice(addr, addr + len);
-		return Buffer.from(slice).toString();
+		const decoder = new TextDecoder("utf-8");
+		return decoder.decode(slice);
 	}
 
 	writeString(str: string, override?: number) {
