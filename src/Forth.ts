@@ -206,14 +206,14 @@ export default class Forth {
 
 		const lenflags = this.fetch(xt);
 		const len = lenflags & HeaderFlags.LengthMask;
-		const flags = lenflags - len;
+		const flags: HeaderFlags = lenflags - len;
 		const name = this.readString(xt + cellsize, len);
 		const cfa = xt + cellsize + (lenflags & HeaderFlags.LengthMask);
 
 		return { lfa, link, xt, len, flags, name, cfa };
 	}
 
-	addBuiltin(name: string, b: ForthBuiltin, flags:HeaderFlags=0) {
+	addBuiltin(name: string, b: ForthBuiltin, flags: HeaderFlags = 0) {
 		const bid = this.builtins.length;
 		this.debug('builtin:', name, bid);
 
@@ -253,7 +253,7 @@ export default class Forth {
 
 	readString(addr: number, len: number) {
 		const slice = this.buffer.slice(addr, addr + len);
-		const decoder = new TextDecoder("utf-8");
+		const decoder = new TextDecoder('utf-8');
 		return decoder.decode(slice);
 	}
 
