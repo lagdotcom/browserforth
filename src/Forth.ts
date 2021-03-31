@@ -1,3 +1,4 @@
+import pkg from '../package.json';
 import ForthBuiltins from './ForthBuiltins';
 import ForthException from './ForthException';
 import Input from './input/Input';
@@ -7,8 +8,6 @@ import Output from './output/Output';
 import Stack from './stack/Stack';
 import Stack16 from './stack/Stack16';
 import Stack32 from './stack/Stack32';
-
-const ForthVersion = '0.1.1';
 
 interface ForthOptions {
 	cellsize: number;
@@ -93,7 +92,7 @@ export default class Forth {
 			this.store = this.store32;
 		} else throw new Error('Invalid cell size');
 
-		this.options.output.type(`browserforth v${ForthVersion} starting...\n`);
+		this.options.output.type(`browserforth v${pkg.version} starting...\n`);
 
 		// base system definitions
 		this.sys = {};
@@ -214,11 +213,11 @@ export default class Forth {
 		return { lfa, link, xt, len, flags, name, cfa };
 	}
 
-	addBuiltin(name: string, b: ForthBuiltin) {
+	addBuiltin(name: string, b: ForthBuiltin, flags:HeaderFlags=0) {
 		const bid = this.builtins.length;
 		this.debug('builtin:', name, bid);
 
-		this.header(name, HeaderFlags.IsBuiltin);
+		this.header(name, HeaderFlags.IsBuiltin | flags);
 		// TODO: this isn't technically needed; could use the builtin's name as a lookup!
 		this.write(bid);
 		this.builtins.push(b);

@@ -1,4 +1,4 @@
-import Forth, { GetterSetter } from './Forth';
+import Forth, { GetterSetter, HeaderFlags } from './Forth';
 import ForthException from './ForthException';
 
 function isWhitespace(ch: string) {
@@ -101,6 +101,9 @@ export default class ForthBuiltins {
 		f.addBuiltin('xor', this.xor);
 
 		f.addBuiltin('evaluate', this.evaluate);
+		f.addBuiltin('words', this.words);
+		f.addBuiltin('[', this.modei, HeaderFlags.IsImmediate);
+		f.addBuiltin(']', this.modec, HeaderFlags.IsImmediate);
 	}
 
 	static dup(f: Forth) {
@@ -569,5 +572,18 @@ export default class ForthBuiltins {
 
 		// TODO
 		f.options.output.type('mismatched (\n');
+	}
+
+	static words(f: Forth) {
+		const wdict = f.words;
+		f.options.output.type(Object.keys(wdict).join(' '));
+	}
+
+	static modei(f: Forth) {
+		ForthBuiltins.state(0);
+	}
+
+	static modec(f: Forth) {
+		ForthBuiltins.state(1);
 	}
 }

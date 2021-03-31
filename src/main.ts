@@ -1,6 +1,7 @@
 import Forth from './Forth';
-import CanvasOutput from './output/CanvasOutput';
+import ForthBuiltins from './ForthBuiltins';
 import DocumentInput from './input/DocumentInput';
+import CanvasOutput from './output/CanvasOutput';
 
 window.addEventListener('load', () => {
 	const output = new CanvasOutput();
@@ -14,4 +15,5 @@ window.addEventListener('load', () => {
 	console.log(f);
 
 	(window as any).f = f;
+	(window as any).fb = ForthBuiltins;
 });
