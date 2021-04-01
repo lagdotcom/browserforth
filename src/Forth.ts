@@ -23,7 +23,8 @@ export type ForthBuiltin = (f: Forth) => Promise<void> | void;
 
 export enum HeaderFlags {
 	LengthMask = 0x00ff,
-	IsWord = 0x0f00,
+	IsWord = 0x0100,
+	IsCompileOnly = 0x0800,
 	IsBuiltin = 0x1000,
 	IsVariable = 0x2000,
 	IsConstant = 0x4000,
@@ -36,6 +37,7 @@ export default class Forth {
 	private buffer: ArrayBuffer;
 	private builtins: ForthBuiltin[];
 	fetch: (addr: number) => number;
+	ip: number;
 	mem: DataView;
 	options: ForthOptions;
 	rstack: Stack;
@@ -93,6 +95,7 @@ export default class Forth {
 		} else throw new Error('Invalid cell size');
 
 		this.options.output.type(`browserforth v${pkg.version} starting...\n`);
+		this.ip = 0;
 
 		// base system definitions
 		this.sys = {};
@@ -143,9 +146,24 @@ export default class Forth {
 
 	xw(s: string) {
 		const words = this.words;
-		if (words[s]) return this.execute(words[s]);
+		if (words[s]) {
+			const xt = words[s];
+			const winfo = this.wordinfo(xt);
 
-		throw new Error(`Undefined word: ${s}`);
+			const state = ForthBuiltins.state();
+			if (state) {
+				if (winfo.flags & HeaderFlags.IsImmediate) return this.execute(xt);
+
+				this.debug('postpone:', winfo.name);
+				return this.write(xt);
+			} else {
+				if (winfo.flags & HeaderFlags.IsCompileOnly)
+					return this.throw(ForthException.compileonlyinterpret);
+				return this.execute(xt);
+			}
+		}
+
+		this.throw(ForthException.undefinedword);
 	}
 
 	throw(e: ForthException) {
@@ -153,7 +171,7 @@ export default class Forth {
 		alert(`exception #${e}`);
 	}
 
-	execute(xt: number) {
+	async execute(xt: number) {
 		const winfo = this.wordinfo(xt);
 		const data = this.fetch(winfo.cfa);
 
@@ -170,8 +188,18 @@ export default class Forth {
 		} else if (winfo.flags & HeaderFlags.IsVariable) {
 			this.stack.push(data);
 		} else {
-			// TODO
-			throw new Error(`dunno how to execute ${xt} yet`);
+			this.rstack.push(this.ip);
+			this.ip = winfo.cfa;
+			await this.runCpu();
+		}
+	}
+
+	async runCpu() {
+		while (this.rstack.contents.length) {
+			const xt = this.fetch(this.ip);
+			this.ip += this.options.cellsize;
+			const word = this.execute(xt);
+			if (word) await word;
 		}
 	}
 
@@ -272,7 +300,7 @@ export default class Forth {
 		return start;
 	}
 
-	header(name: string, flags: HeaderFlags) {
+	header(name: string, flags: HeaderFlags = 0) {
 		const org = this.here;
 		this.write(this.link);
 		this.link = org;

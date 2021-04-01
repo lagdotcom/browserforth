@@ -1,8 +1,22 @@
 import Forth, { GetterSetter, HeaderFlags } from './Forth';
 import ForthException from './ForthException';
 
+const whitespaces = [' ', '\r', '\n', '\t'];
 function isWhitespace(ch: string) {
 	return ch == ' ' || ch == '\r' || ch == '\n' || ch == '\t';
+}
+
+function scan(f: Forth, ...until: string[]) {
+	const { sourceAddr, sourceLen, toIn } = ForthBuiltins;
+	let current = '';
+
+	while (toIn() < sourceLen()) {
+		const ch = String.fromCharCode(f.fetch8(sourceAddr() + toIn()));
+		toIn(toIn() + 1);
+
+		if (until.includes(ch)) return current;
+		current += ch;
+	}
 }
 
 export default class ForthBuiltins {
@@ -100,10 +114,23 @@ export default class ForthBuiltins {
 		f.addBuiltin('within', this.within);
 		f.addBuiltin('xor', this.xor);
 
+		f.addBuiltin('literal', this.literal);
+		f.addBuiltin('exit', this.exit);
+
 		f.addBuiltin('evaluate', this.evaluate);
 		f.addBuiltin('words', this.words);
-		f.addBuiltin('[', this.modei, HeaderFlags.IsImmediate);
-		f.addBuiltin(']', this.modec, HeaderFlags.IsImmediate);
+		f.addBuiltin(
+			'[',
+			this.interpretMode,
+			HeaderFlags.IsImmediate | HeaderFlags.IsCompileOnly
+		);
+		f.addBuiltin(']', this.compileMode);
+		f.addBuiltin(':', this.colon);
+		f.addBuiltin(
+			';',
+			this.semicolon,
+			HeaderFlags.IsImmediate | HeaderFlags.IsCompileOnly
+		);
 	}
 
 	static dup(f: Forth) {
@@ -439,7 +466,14 @@ export default class ForthBuiltins {
 
 	// TODO: this kinda sucks, still
 	static async evaluate(f: Forth) {
-		const { base, sourceAddr, sourceLen, sourceId, toIn } = ForthBuiltins;
+		const {
+			base,
+			sourceAddr,
+			sourceLen,
+			sourceId,
+			state,
+			toIn,
+		} = ForthBuiltins;
 		sourceLen(f.stack.pop());
 		sourceAddr(f.stack.pop());
 		sourceId(-1);
@@ -452,9 +486,7 @@ export default class ForthBuiltins {
 			if (current) {
 				if (f.words[current.toLowerCase()]) {
 					const result = f.xw(current);
-					if (result) {
-						await result;
-					}
+					if (result) await result;
 				} else {
 					const value = parseInt(current, base());
 					if (isNaN(value)) {
@@ -462,7 +494,11 @@ export default class ForthBuiltins {
 						f.options.output.type(`parsing error: ${current}\n`);
 						exit = true;
 					} else {
-						f.stack.push(value);
+						if (state()) {
+							f.debug('postpone: literal', value);
+							f.write(f.words.literal);
+							f.write(value);
+						} else f.stack.push(value);
 					}
 				}
 
@@ -508,18 +544,10 @@ export default class ForthBuiltins {
 	}
 
 	static dotquote(f: Forth) {
-		const { sourceAddr, sourceLen, toIn } = ForthBuiltins;
-		var current = '';
-
-		while (toIn() < sourceLen()) {
-			const ch = String.fromCharCode(f.fetch8(sourceAddr() + toIn()));
-			toIn(toIn() + 1);
-
-			if (ch == '"') {
-				f.options.output.type(current);
-				return;
-			}
-			current += ch;
+		const result = scan(f, '"');
+		if (typeof result === 'string') {
+			f.options.output.type(result);
+			return;
 		}
 
 		// TODO
@@ -533,24 +561,10 @@ export default class ForthBuiltins {
 	}
 
 	static quote(f: Forth) {
-		const { sourceAddr, sourceLen, toIn } = ForthBuiltins;
-		var current = '';
-
-		while (toIn() < sourceLen()) {
-			const ch = String.fromCharCode(f.fetch8(sourceAddr() + toIn()));
-			toIn(toIn() + 1);
-
-			if (current && isWhitespace(ch)) break;
-			current += ch;
-		}
-
-		if (current) {
-			const xt = f.words[current.toLowerCase()];
-			if (!xt) {
-				// TODO
-				f.options.output.type(`not defined: ${current}\n`);
-				return;
-			}
+		const result = scan(f, ...whitespaces);
+		if (typeof result === 'string') {
+			const xt = f.words[result.toLowerCase()];
+			if (!xt) return f.throw(ForthException.undefinedword);
 
 			f.stack.push(xt);
 			return;
@@ -561,14 +575,8 @@ export default class ForthBuiltins {
 	}
 
 	static comment(f: Forth) {
-		const { sourceAddr, sourceLen, toIn } = ForthBuiltins;
-
-		while (toIn() < sourceLen()) {
-			const ch = String.fromCharCode(f.fetch8(sourceAddr() + toIn()));
-			toIn(toIn() + 1);
-
-			if (ch == ')') return;
-		}
+		const result = scan(f, ')');
+		if (typeof result === 'string') return;
 
 		// TODO
 		f.options.output.type('mismatched (\n');
@@ -579,11 +587,40 @@ export default class ForthBuiltins {
 		f.options.output.type(Object.keys(wdict).join(' '));
 	}
 
-	static modei(f: Forth) {
+	static interpretMode(f: Forth) {
 		ForthBuiltins.state(0);
 	}
 
-	static modec(f: Forth) {
+	static compileMode(f: Forth) {
 		ForthBuiltins.state(1);
+	}
+
+	static literal(f: Forth) {
+		const value = f.fetch(f.ip);
+		f.ip += f.options.cellsize;
+		f.stack.push(value);
+	}
+
+	static exit(f: Forth) {
+		f.ip = f.rstack.pop();
+	}
+
+	static colon(f: Forth) {
+		// parse-name header, ]
+		const result = scan(f, ...whitespaces);
+		if (typeof result === 'string') {
+			f.header(result);
+			f.xw(']');
+			return;
+		}
+
+		// TODO
+		f.options.output.type('no word???');
+	}
+
+	static semicolon(f: Forth) {
+		// postpone exit [
+		f.write(f.words.exit);
+		f.xw('[');
 	}
 }
