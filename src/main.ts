@@ -3,7 +3,7 @@ import ForthBuiltins from './ForthBuiltins';
 import DocumentInput from './input/DocumentInput';
 import CanvasOutput from './output/CanvasOutput';
 
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
 	const output = new CanvasOutput();
 	const input = new DocumentInput();
 
@@ -12,8 +12,9 @@ window.addEventListener('load', () => {
 		input,
 		output,
 	});
-	console.log(f);
-
 	(window as any).f = f;
 	(window as any).fb = ForthBuiltins;
+
+	await f.initialise();
+	console.log(f);
 });

@@ -103,9 +103,11 @@ export default class Forth {
 		this.allocSysVar('dp');
 		this.allocSysVar('link');
 		this.addSysVars();
+	}
 
-		ForthBuiltins.attach(this);
-		//ExceptionWords.attach(this);
+	async initialise() {
+		await ForthBuiltins.attach(this);
+		//await ExceptionWords.attach(this);
 	}
 
 	get here() {
@@ -154,7 +156,7 @@ export default class Forth {
 			if (state) {
 				if (winfo.flags & HeaderFlags.IsImmediate) return this.execute(xt);
 
-				this.debug('postpone:', winfo.name);
+				this.debug('compile:', winfo.name);
 				return this.write(xt);
 			} else {
 				if (winfo.flags & HeaderFlags.IsCompileOnly)
@@ -203,13 +205,13 @@ export default class Forth {
 		}
 	}
 
-	runString(s: string) {
+	runString(s: string): void | Promise<void> {
 		const addr = this.here + 1000;
 		const saddr = this.writeStringAt(addr, s);
 
 		this.stack.push(saddr);
 		this.stack.push(s.length);
-		this.xw('evaluate');
+		return this.xw('evaluate');
 	}
 
 	get words() {

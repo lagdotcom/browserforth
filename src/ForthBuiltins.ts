@@ -27,7 +27,9 @@ export default class ForthBuiltins {
 	static state: GetterSetter<number>;
 	static toIn: GetterSetter<number>;
 
-	static attach(f: Forth) {
+	static async attach(f: Forth) {
+		const { IsImmediate, IsCompileOnly } = HeaderFlags;
+
 		ForthBuiltins.state = f.addVariable('state', 0);
 		ForthBuiltins.base = f.addVariable('base', 10);
 		ForthBuiltins.sourceAddr = f.addVariable('source-addr', 0);
@@ -44,93 +46,197 @@ export default class ForthBuiltins {
 		f.addBuiltin('sp!', this.spstore);
 		f.addBuiltin('rp@', this.rptop);
 		f.addBuiltin('rp!', this.rpstore);
+		f.addBuiltin('compile-only', this.compileonly);
 
-		f.addBuiltin('-', this.sub);
-		f.addBuiltin(',', this.comma);
+		// --- core
 		f.addBuiltin('!', this.store);
-		f.addBuiltin('?dup', this.qdup);
-		f.addBuiltin('.', this.dot);
-		f.addBuiltin('."', this.dotquote);
-		f.addBuiltin('.s', this.showstack);
-		f.addBuiltin("'", this.quote);
-		f.addBuiltin('(', this.comment);
-		f.addBuiltin('@', this.fetch);
-		f.addBuiltin('*', this.mul);
-		f.addBuiltin('*/', this.muldiv);
-		f.addBuiltin('*/mod', this.muldivmod);
-		f.addBuiltin('/', this.div);
-		f.addBuiltin('/mod', this.divmod);
 		// f.addBuiltin('#', this.picdigit);
 		// f.addBuiltin('#>', this.picend);
 		// f.addBuiltin('#s', this.picall);
-		// f.addBuiltin('+!', this.addstore);
+		f.addBuiltin("'", this.quote);
+		f.addBuiltin('(', this.comment);
+		f.addBuiltin('*', this.mul);
+		f.addBuiltin('*/', this.muldiv);
+		f.addBuiltin('*/mod', this.muldivmod);
 		f.addBuiltin('+', this.add);
+		// f.addBuiltin('+!', this.addstore);
 		// f.addBuiltin('+loop', this.addloop);
-		f.addBuiltin('<', this.lt);
-		// f.addBuiltin('<#', this.picstart);
-		f.addBuiltin('<>', this.ne);
-		f.addBuiltin('=', this.eq);
-		f.addBuiltin('>', this.gt);
-		f.addBuiltin('>r', this.tor);
+		f.addBuiltin(',', this.comma);
+		f.addBuiltin('-', this.sub);
+		f.addBuiltin('.', this.dot);
+		f.addBuiltin('."', this.dotquote);
+		f.addBuiltin('/', this.div);
+		f.addBuiltin('/mod', this.divmod);
 		f.addBuiltin('0<', this.zlt);
-		f.addBuiltin('0<>', this.zne);
 		f.addBuiltin('0=', this.zeq);
-		f.addBuiltin('0>', this.zgt);
-		f.addBuiltin('1-', this.dec);
 		f.addBuiltin('1+', this.inc);
+		f.addBuiltin('1-', this.dec);
 		// f.addBuiltin('2!', this.store2);
-		// f.addBuiltin('2@', this.fetch2);
 		// f.addBuiltin('2*', this.mul2);
 		// f.addBuiltin('2/', this.div2);
+		// f.addBuiltin('2@', this.fetch2);
 		f.addBuiltin('2drop', this.drop2);
 		f.addBuiltin('2dup', this.dup2);
 		// f.addBuiltin('2over', this.over2);
 		f.addBuiltin('2swap', this.swap2);
+		f.addBuiltin(':', this.colon);
+		f.addBuiltin(';', this.semicolon, IsImmediate | IsCompileOnly);
+		f.addBuiltin('<', this.lt);
+		// f.addBuiltin('<#', this.picstart);
+		f.addBuiltin('=', this.eq);
+		f.addBuiltin('>', this.gt);
+		// f.addBuiltin('>body', this.tobody);
+		// f.addBuiltin('>number', this.tonumber);
+		f.addBuiltin('>r', this.tor);
+		f.addBuiltin('?dup', this.qdup);
+		f.addBuiltin('@', this.fetch);
+		// f.addBuiltin('abort', this.abort);
+		// f.addBuiltin('abort"', this.abortq);
+		// f.addBuiltin('abs', this.abs);
+		// f.addBuiltin('accept', this.accept);
+		// f.addBuiltin('align', this.align);
+		// f.addBuiltin('aligned', this.aligned);
 		f.addBuiltin('allot', this.allot);
 		f.addBuiltin('and', this.and);
-		f.addBuiltin('at-xy', this.atxy);
+		// f.addBuiltin('begin', this.begin);
+		// f.addBuiltin('bl', this.bl);
+		// f.addBuiltin('c!', this.cstore);
 		f.addBuiltin('c,', this.ccomma);
+		// f.addBuiltin('c@', this.cfetch);
+		// f.addBuiltin('cell+', this.cellp);
+		// f.addBuiltin('cells', this.cells);
+		f.addBuiltin('char', this.char);
+		// f.addBuiltin('char+', this.charp);
+		// f.addBuiltin('chars', this.chars);
+		// f.addBuiltin('constant', this.constant);
 		f.addBuiltin('count', this.count);
 		f.addBuiltin('cr', this.cr);
+		// f.addBuiltin('create', this.create);
+		// f.addBuiltin('decimal', this.decimal);
 		f.addBuiltin('depth', this.depth);
+		// f.addBuiltin('do', this.do);
+		// f.addBuiltin('does>', this.does);
 		f.addBuiltin('drop', this.drop);
 		f.addBuiltin('dup', this.dup);
+		// f.addBuiltin('else', this.else);
 		f.addBuiltin('emit', this.emit);
+		// f.addBuiltin('environment?', this.envq);
+		f.addBuiltin('evaluate', this.evaluate);
 		f.addBuiltin('execute', this.execute);
+		f.addBuiltin('exit', this.exit);
+		// f.addBuiltin('fill', this.fill);
+		// f.addBuiltin('find', this.find);
+		// f.addBuiltin('fm/mod', this.fmmod);
 		f.addBuiltin('here', this.here);
+		// f.addBuiltin('hold', this.hold);
+		// f.addBuiltin('i', this.i);
+		// f.addBuiltin('if', this.if);
+		f.addBuiltin('immediate', this.immediate);
+		// f.addBuiltin('invert', this.invert);
+		// f.addBuiltin('j', this.j);
 		f.addBuiltin('key', this.key);
-		f.addBuiltin('key?', this.keyq);
-		f.addBuiltin('nip', this.nip);
+		// f.addBuiltin('leave', this.leave);
+		f.addBuiltin('literal', this.literal);
+		f.addBuiltin('(literal)', this.literalRt);
+		// f.addBuiltin('loop', this.loop);
+		// f.addBuiltin('lshift', this.lshift);
+		// f.addBuiltin('m*', this.mmul);
+		// f.addBuiltin('max', this.max);
+		// f.addBuiltin('min', this.min);
+		// f.addBuiltin('mod', this.mod);
+		// f.addBuiltin('move', this.move);
+		// f.addBuiltin('negate', this.negate);
 		f.addBuiltin('or', this.or);
 		f.addBuiltin('over', this.over);
-		f.addBuiltin('r@', this.rpeek);
+		f.addBuiltin('postpone', this.postpone);
+		// f.addBuiltin('quit', this.quit);
 		f.addBuiltin('r>', this.fromr);
+		f.addBuiltin('r@', this.rpeek);
+		// f.addBuiltin('recurse', this.recurse);
+		// f.addBuiltin('repeat', this.repeat);
 		f.addBuiltin('rot', this.rot);
+		// f.addBuiltin('rshift', this.rshift);
+		// f.addBuiltin('s"', this.squote);
+		// f.addBuiltin('s>d', this.stod);
+		// f.addBuiltin('sign', this.sign);
+		// f.addBuiltin('sm/rem', this.smrem);
 		f.addBuiltin('source', this.source);
+		// f.addBuiltin('space', this.space);
+		// f.addBuiltin('spaces', this.spaces);
 		f.addBuiltin('swap', this.swap);
+		// f.addBuiltin('then', this.then);
 		f.addBuiltin('type', this.type);
 		f.addBuiltin('u.', this.udot);
-		f.addBuiltin('unused', this.unused);
-		f.addBuiltin('within', this.within);
+		// f.addBuiltin('u<', this.ult);
+		// f.addBuiltin('um*', this.ummul);
+		// f.addBuiltin('um/mod', this.ummod);
+		// f.addBuiltin('unloop', this.unloop);
+		// f.addBuiltin('until', this.until);
+		// f.addBuiltin('variable', this.variable);
+		// f.addBuiltin('while', this.while);
+		// f.addBuiltin('word', this.word);
 		f.addBuiltin('xor', this.xor);
-
-		f.addBuiltin('literal', this.literal);
-		f.addBuiltin('exit', this.exit);
-
-		f.addBuiltin('evaluate', this.evaluate);
-		f.addBuiltin('words', this.words);
-		f.addBuiltin(
-			'[',
-			this.interpretMode,
-			HeaderFlags.IsImmediate | HeaderFlags.IsCompileOnly
-		);
+		f.addBuiltin('[', this.interpretMode, IsImmediate | IsCompileOnly);
+		// f.addBuiltin("[']", this.quoteimm, IsImmediate | IsCompileOnly);
 		f.addBuiltin(']', this.compileMode);
-		f.addBuiltin(':', this.colon);
-		f.addBuiltin(
-			';',
-			this.semicolon,
-			HeaderFlags.IsImmediate | HeaderFlags.IsCompileOnly
-		);
+		await f.runString(': [char] char literal ; immediate compile-only');
+
+		// --- core-ext
+		// f.addBuiltin('.(', this.dotbracket);
+		// f.addBuiltin('.r', this.dotr);
+		f.addBuiltin('0<>', this.zne);
+		f.addBuiltin('0>', this.zgt);
+		// f.addBuiltin('2>r', this.dtor); // swap >r >r
+		// f.addBuiltin('2r>', this.dfromr); // r> r> swap
+		// f.addBuiltin('2r@', this.drpeek); // r> r> 2dup >r >r swap
+		// f.addBuiltin(':noname', this.noname);
+		f.addBuiltin('<>', this.ne);
+		// f.addBuiltin('?do', this.qdo);
+		// f.addBuiltin('action-of', this.actionof);
+		// f.addBuiltin('again', this.again);
+		// f.addBuiltin('buffer:', this.buffer);
+		// f.addBuiltin('c"', this.cquote);
+		// f.addBuiltin('case', this.case);
+		// f.addBuiltin('compile,', this.compile);
+		// f.addBuiltin('defer', this.defer);
+		// f.addBuiltin('defer!', this.deferstore);
+		// f.addBuiltin('defer@', this.deferfetch);
+		// f.addBuiltin('endcase', this.endcase);
+		// f.addBuiltin('endof', this.endof);
+		// f.addBuiltin('erase', this.erase);
+		// f.addBuiltin('false', this.false);
+		// f.addBuiltin('hex', this.hex);
+		// f.addBuiltin('holds', this.holds);
+		// f.addBuiltin('is', this.is);
+		// f.addBuiltin('marker', this.marker);
+		f.addBuiltin('nip', this.nip);
+		// f.addBuiltin('of', this.of);
+		// f.addBuiltin('pad', this.pad);
+		// f.addBuiltin('parse', this.parse);
+		// f.addBuiltin('parse-name', this.parsename);
+		// f.addBuiltin('pick', this.pick);
+		// f.addBuiltin('refill', this.refill);
+		// f.addBuiltin('restore-input', this.restoreinput);
+		// f.addBuiltin('roll', this.roll);
+		// f.addBuiltin('s\\"', this.sbackquote);
+		// f.addBuiltin('save-input', this.saveinput);
+		// f.addBuiltin('to', this.to);
+		// f.addBuiltin('true', this.true);
+		// f.addBuiltin('tuck', this.tuck);
+		// f.addBuiltin('u.r', this.udotr);
+		// f.addBuiltin('u>', this.ugt);
+		f.addBuiltin('unused', this.unused);
+		// f.addBuiltin('value', this.value);
+		f.addBuiltin('within', this.within);
+		// f.addBuiltin('\\', this.backslash);
+
+		// --- facility (incomplete list)
+		f.addBuiltin('at-xy', this.atxy);
+		f.addBuiltin('key?', this.keyq);
+
+		// --- programming-tools (incomplete list)
+		f.addBuiltin('.s', this.showstack);
+		f.addBuiltin('words', this.words);
 	}
 
 	static dup(f: Forth) {
@@ -494,11 +600,8 @@ export default class ForthBuiltins {
 						f.options.output.type(`parsing error: ${current}\n`);
 						exit = true;
 					} else {
-						if (state()) {
-							f.debug('postpone: literal', value);
-							f.write(f.words.literal);
-							f.write(value);
-						} else f.stack.push(value);
+						f.stack.push(value);
+						if (state()) ForthBuiltins.literal(f);
 					}
 				}
 
@@ -574,6 +677,21 @@ export default class ForthBuiltins {
 		f.options.output.type("invalid use of '\n");
 	}
 
+	static postpone(f: Forth) {
+		const result = scan(f, ...whitespaces);
+		if (typeof result === 'string') {
+			const xt = f.words[result.toLowerCase()];
+			if (!xt) return f.throw(ForthException.undefinedword);
+
+			f.debug('compile:', result);
+			f.write(xt);
+			return;
+		}
+
+		// TODO
+		f.options.output.type('invalid use of postpone\n');
+	}
+
 	static comment(f: Forth) {
 		const result = scan(f, ')');
 		if (typeof result === 'string') return;
@@ -596,6 +714,13 @@ export default class ForthBuiltins {
 	}
 
 	static literal(f: Forth) {
+		const value = f.stack.pop();
+		f.debug('compile: (literal)', value);
+		f.write(f.words['(literal)']);
+		f.write(value);
+	}
+
+	static literalRt(f: Forth) {
 		const value = f.fetch(f.ip);
 		f.ip += f.options.cellsize;
 		f.stack.push(value);
@@ -609,6 +734,7 @@ export default class ForthBuiltins {
 		// parse-name header, ]
 		const result = scan(f, ...whitespaces);
 		if (typeof result === 'string') {
+			f.debug('defining:', result);
 			f.header(result);
 			f.xw(']');
 			return;
@@ -622,5 +748,27 @@ export default class ForthBuiltins {
 		// postpone exit [
 		f.write(f.words.exit);
 		f.xw('[');
+	}
+
+	static char(f: Forth) {
+		const result = scan(f, ...whitespaces);
+		if (typeof result === 'string') {
+			const value = result.charCodeAt(0);
+			f.stack.push(value);
+			return;
+		}
+
+		// TODO
+		f.options.output.type('no word???');
+	}
+
+	static immediate(f: Forth) {
+		const xt = f.link + f.options.cellsize;
+		f.store(xt, f.fetch(xt) | HeaderFlags.IsImmediate);
+	}
+
+	static compileonly(f: Forth) {
+		const xt = f.link + f.options.cellsize;
+		f.store(xt, f.fetch(xt) | HeaderFlags.IsCompileOnly);
 	}
 }
