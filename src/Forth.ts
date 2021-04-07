@@ -25,6 +25,7 @@ export type ForthBuiltin = (f: Forth) => Promise<void> | void;
 export enum HeaderFlags {
 	LengthMask = 0x00ff,
 	IsWord = 0x0100,
+	IsCreate = 0x0400,
 	IsCompileOnly = 0x0800,
 	IsBuiltin = 0x1000,
 	IsVariable = 0x2000,
@@ -202,7 +203,7 @@ export default class Forth {
 	async execute(xt: number) {
 		return new Promise<void>(async (resolve, reject) => {
 			const winfo = this.wordinfo(xt);
-			const data = this.fetch(winfo.cfa);
+			const code = this.fetch(winfo.cfa);
 
 			if (!(winfo.flags & HeaderFlags.IsWord)) {
 				return reject(`trying to execute non-word: ${xt}`);
@@ -212,21 +213,26 @@ export default class Forth {
 
 			if (winfo.flags & HeaderFlags.IsBuiltin) {
 				try {
-					await this.builtins[data](this);
+					await this.builtins[code](this);
 					return resolve();
 				} catch (e) {
 					this.debug('js exception:', e);
 					this.exception = -1;
 				}
 			} else if (winfo.flags & HeaderFlags.IsConstant) {
-				this.stack.push(data);
+				this.stack.push(code);
 				return resolve();
 			} else if (winfo.flags & HeaderFlags.IsVariable) {
-				this.stack.push(data);
+				this.stack.push(code);
 				return resolve();
 			} else {
+				let ip = code;
+				if (winfo.flags & HeaderFlags.IsCreate) {
+					this.stack.push(winfo.dfa);
+					ip = winfo.cfa;
+				}
 				this.rstack.push(this.ip);
-				this.ip = winfo.cfa;
+				this.ip = ip;
 				await this.runCpu();
 				return resolve();
 			}
@@ -277,9 +283,10 @@ export default class Forth {
 		const len = lenflags & HeaderFlags.LengthMask;
 		const flags: HeaderFlags = lenflags - len;
 		const name = this.readString(xt + cellsize, len);
-		const cfa = xt + cellsize + (lenflags & HeaderFlags.LengthMask);
+		const cfa = xt + cellsize + len;
+		const dfa = cfa + cellsize;
 
-		return { lfa, link, xt, len, flags, name, cfa };
+		return { lfa, link, xt, len, flags, name, cfa, dfa };
 	}
 
 	addBuiltin(name: string, b: ForthBuiltin, flags: HeaderFlags = 0) {

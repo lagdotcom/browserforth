@@ -17,6 +17,8 @@ function scan(f: Forth, ...until: string[]) {
 		if (until.includes(ch)) return current;
 		current += ch;
 	}
+
+	if (current) return current;
 }
 
 export default class ForthBuiltins {
@@ -111,7 +113,7 @@ export default class ForthBuiltins {
 		// f.addBuiltin('constant', this.constant);
 		f.addBuiltin('count', this.count);
 		f.addBuiltin('cr', this.cr);
-		// f.addBuiltin('create', this.create);
+		f.addBuiltin('create', this.create);
 		f.addBuiltin('decimal', this.decimal);
 		f.addBuiltin('depth', this.depth);
 		// f.addBuiltin('do', this.do);
@@ -748,6 +750,8 @@ export default class ForthBuiltins {
 		if (typeof result === 'string') {
 			f.debug('defining:', result);
 			f.header(result);
+			const cfa = f.here + f.options.cellsize;
+			f.write(cfa);
 			return ForthBuiltins.compileMode(f);
 		}
 
@@ -798,5 +802,21 @@ export default class ForthBuiltins {
 
 	static hex(f: Forth) {
 		ForthBuiltins.base(16);
+	}
+
+	static create(f: Forth) {
+		const result = scan(f, ...whitespaces);
+		if (typeof result === 'string') {
+			f.debug('defining:', result);
+			f.header(result, HeaderFlags.IsCreate);
+
+			const xt = f.words.exit;
+			f.debug('compile: exit');
+			f.write(xt);
+			return;
+		}
+
+		// TODO
+		f.options.output.type('no word???');
 	}
 }
