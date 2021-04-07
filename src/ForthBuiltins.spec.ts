@@ -1,6 +1,7 @@
+import { expect } from 'chai';
+
 import Forth, { ForthBuiltin } from './Forth';
 import ForthBuiltins from './ForthBuiltins';
-import { expect } from 'chai';
 
 describe('forth builtins', () => {
 	function stackTest(fn: ForthBuiltin, inputs: number[], outputs: number[]) {

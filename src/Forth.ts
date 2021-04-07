@@ -12,6 +12,7 @@ import Stack32 from './stack/Stack32';
 interface ForthOptions {
 	cellsize: number;
 	debug: boolean;
+	exceptions: boolean;
 	input: Input;
 	memory: number;
 	output: Output;
@@ -36,6 +37,7 @@ export type GetterSetter<T> = (x?: T) => T;
 export default class Forth {
 	private buffer: ArrayBuffer;
 	private builtins: ForthBuiltin[];
+	exception: ForthException;
 	fetch: (addr: number) => number;
 	ip: number;
 	mem: DataView;
@@ -51,6 +53,8 @@ export default class Forth {
 		this.options = {
 			cellsize: options.cellsize || 2,
 			debug: typeof options.debug !== 'undefined' ? options.debug : false,
+			exceptions:
+				typeof options.exceptions !== 'undefined' ? options.exceptions : false,
 			input: options.input || new NullInput(),
 			memory: options.memory || 60000,
 			output: options.output || new NullOutput(),
@@ -60,6 +64,7 @@ export default class Forth {
 
 		this.buffer = new ArrayBuffer(this.options.memory);
 		this.builtins = [];
+		this.exception = 0;
 		this.mem = new DataView(this.buffer);
 
 		if (this.options.cellsize == 2) {
@@ -146,69 +151,103 @@ export default class Forth {
 		if (this.options.debug) console.log(...params);
 	}
 
-	xw(s: string) {
-		const words = this.words;
-		if (words[s]) {
-			const xt = words[s];
-			const winfo = this.wordinfo(xt);
+	xw(s: string): Promise<void> {
+		return new Promise(async (resolve, reject) => {
+			const words = this.words;
+			if (words[s]) {
+				const xt = words[s];
+				const winfo = this.wordinfo(xt);
 
-			const state = ForthBuiltins.state();
-			if (state) {
-				if (winfo.flags & HeaderFlags.IsImmediate) return this.execute(xt);
+				const state = ForthBuiltins.state();
+				if (state) {
+					if (winfo.flags & HeaderFlags.IsImmediate) {
+						await this.execute(xt);
+						if (this.exception) return reject();
+						return resolve();
+					}
 
-				this.debug('compile:', winfo.name);
-				return this.write(xt);
-			} else {
-				if (winfo.flags & HeaderFlags.IsCompileOnly)
-					return this.throw(ForthException.compileonlyinterpret);
-				return this.execute(xt);
+					this.debug('compile:', winfo.name);
+					this.write(xt);
+					return resolve();
+				} else {
+					if (winfo.flags & HeaderFlags.IsCompileOnly) {
+						this.throw(
+							ForthException.compileonlyinterpret,
+							`compile-only word: ${s}`
+						);
+						return reject();
+					}
+					await this.execute(xt);
+					if (this.exception) return reject();
+					return resolve();
+				}
 			}
-		}
 
-		this.throw(ForthException.undefinedword);
+			this.throw(ForthException.undefinedword, `undefined word: ${s}`);
+			return reject();
+		});
 	}
 
-	throw(e: ForthException) {
+	throw(e: ForthException, err: string) {
+		this.exception = e;
+
+		console.log('exception:', e, err);
+		if (this.options.exceptions)
+			throw new Error(`Forth exception #${e}: ${err}`);
+
 		// TODO
-		alert(`exception #${e}`);
+		alert(`exception #${e}: ${err}`);
 	}
 
 	async execute(xt: number) {
-		const winfo = this.wordinfo(xt);
-		const data = this.fetch(winfo.cfa);
+		return new Promise<void>(async (resolve, reject) => {
+			const winfo = this.wordinfo(xt);
+			const data = this.fetch(winfo.cfa);
 
-		if (!(winfo.flags & HeaderFlags.IsWord)) {
-			throw new Error(`trying to execute non-word: ${xt}`);
-		}
+			if (!(winfo.flags & HeaderFlags.IsWord)) {
+				return reject(`trying to execute non-word: ${xt}`);
+			}
 
-		this.debug('execute:', winfo.name);
+			this.debug('execute:', winfo.name);
 
-		if (winfo.flags & HeaderFlags.IsBuiltin) {
-			return this.builtins[data](this);
-		} else if (winfo.flags & HeaderFlags.IsConstant) {
-			this.stack.push(data);
-		} else if (winfo.flags & HeaderFlags.IsVariable) {
-			this.stack.push(data);
-		} else {
-			this.rstack.push(this.ip);
-			this.ip = winfo.cfa;
-			await this.runCpu();
-		}
+			if (winfo.flags & HeaderFlags.IsBuiltin) {
+				try {
+					await this.builtins[data](this);
+					return resolve();
+				} catch (e) {
+					this.debug('js exception:', e);
+					this.exception = -1;
+				}
+			} else if (winfo.flags & HeaderFlags.IsConstant) {
+				this.stack.push(data);
+				return resolve();
+			} else if (winfo.flags & HeaderFlags.IsVariable) {
+				this.stack.push(data);
+				return resolve();
+			} else {
+				this.rstack.push(this.ip);
+				this.ip = winfo.cfa;
+				await this.runCpu();
+				return resolve();
+			}
+		});
 	}
 
 	async runCpu() {
 		while (this.rstack.contents.length) {
 			const xt = this.fetch(this.ip);
 			this.ip += this.options.cellsize;
-			const word = this.execute(xt);
-			if (word) await word;
+			const result = this.execute(xt);
+			if (result) await result;
+			if (this.exception) return;
 		}
 	}
 
-	runString(s: string): void | Promise<void> {
+	runString(s: string): Promise<void> {
 		const addr = this.here + 1000;
 		const saddr = this.writeStringAt(addr, s);
 
+		this.exception = 0;
 		this.stack.push(saddr);
 		this.stack.push(s.length);
 		return this.xw('evaluate');
