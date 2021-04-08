@@ -21,12 +21,25 @@ function scan(f: Forth, ...until: string[]) {
 	if (current) return current;
 }
 
+function doPictureDigit(hi: number, lo: number, base: number, max: number) {
+	var full = lo + hi * max;
+	const digit = (full % base).toString(base);
+
+	full = Math.floor(full / base);
+	var flo = full % max;
+	var fhi = Math.floor(full / max);
+
+	return { flo, fhi, char: digit.charCodeAt(0) };
+}
+
 export default class ForthBuiltins {
 	static base: GetterSetter<number>;
+	static picbuf: number;
 	static sourceAddr: GetterSetter<number>;
 	static sourceId: GetterSetter<number>;
 	static sourceLen: GetterSetter<number>;
 	static state: GetterSetter<number>;
+	static toPicbuf: GetterSetter<number>;
 	static toIn: GetterSetter<number>;
 
 	static async attach(f: Forth) {
@@ -39,6 +52,11 @@ export default class ForthBuiltins {
 		ForthBuiltins.sourceLen = f.addVariable('source-len', 0);
 		ForthBuiltins.toIn = f.addVariable('>in', 0);
 
+		f.here += 16;
+		ForthBuiltins.picbuf = f.here;
+		f.addConstant('picbuf', ForthBuiltins.picbuf);
+		ForthBuiltins.toPicbuf = f.addVariable('>picbuf', ForthBuiltins.picbuf);
+
 		f.addConstant('false', 0);
 		f.addConstant('true', -1);
 
@@ -48,15 +66,20 @@ export default class ForthBuiltins {
 		f.addBuiltin('sp!', this.spstore);
 		f.addBuiltin('rp@', this.rptop);
 		f.addBuiltin('rp!', this.rpstore);
+
+		// --- nonstandard
 		f.addBuiltin('compile-only', this.compileonly);
+		f.addBuiltin('s=', this.seq);
+		f.addBuiltin('(literal)', this.literalRt);
+		f.addBuiltin('(sliteral)', this.sliteralRt);
 
 		// --- core
 		f.addBuiltin('!', this.store);
-		// f.addBuiltin('#', this.picdigit);
-		// f.addBuiltin('#>', this.picend);
-		// f.addBuiltin('#s', this.picall);
+		f.addBuiltin('#', this.picdigit);
+		f.addBuiltin('#>', this.picend);
+		f.addBuiltin('#s', this.picall);
 		f.addBuiltin("'", this.quote);
-		f.addBuiltin('(', this.comment);
+		f.addBuiltin('(', this.comment, IsImmediate);
 		f.addBuiltin('*', this.mul);
 		f.addBuiltin('*/', this.muldiv);
 		f.addBuiltin('*/mod', this.muldivmod);
@@ -84,7 +107,7 @@ export default class ForthBuiltins {
 		f.addBuiltin(':', this.colon);
 		f.addBuiltin(';', this.semicolon, IsImmediate | IsCompileOnly);
 		f.addBuiltin('<', this.lt);
-		// f.addBuiltin('<#', this.picstart);
+		f.addBuiltin('<#', this.picstart);
 		f.addBuiltin('=', this.eq);
 		f.addBuiltin('>', this.gt);
 		f.addBuiltin('>body', this.tobody);
@@ -102,13 +125,13 @@ export default class ForthBuiltins {
 		f.addBuiltin('and', this.and);
 		// f.addBuiltin('begin', this.begin);
 		f.addBuiltin('bl', this.bl);
-		// f.addBuiltin('c!', this.cstore);
+		f.addBuiltin('c!', this.cstore);
 		f.addBuiltin('c,', this.ccomma);
-		// f.addBuiltin('c@', this.cfetch);
-		// f.addBuiltin('cell+', this.cellp);
+		f.addBuiltin('c@', this.cfetch);
+		f.addBuiltin('cell+', this.cellp);
 		// f.addBuiltin('cells', this.cells);
 		f.addBuiltin('char', this.char);
-		// f.addBuiltin('char+', this.charp);
+		f.addBuiltin('char+', this.charp);
 		// f.addBuiltin('chars', this.chars);
 		f.addBuiltin('count', this.count);
 		f.addBuiltin('cr', this.cr);
@@ -138,7 +161,6 @@ export default class ForthBuiltins {
 		f.addBuiltin('key', this.key);
 		// f.addBuiltin('leave', this.leave);
 		f.addBuiltin('literal', this.literal, IsImmediate | IsCompileOnly);
-		f.addBuiltin('(literal)', this.literalRt);
 		// f.addBuiltin('loop', this.loop);
 		// f.addBuiltin('lshift', this.lshift);
 		// f.addBuiltin('m*', this.mmul);
@@ -157,7 +179,7 @@ export default class ForthBuiltins {
 		// f.addBuiltin('repeat', this.repeat);
 		f.addBuiltin('rot', this.rot);
 		// f.addBuiltin('rshift', this.rshift);
-		// f.addBuiltin('s"', this.squote);
+		f.addBuiltin('s"', this.squote, IsImmediate | IsCompileOnly);
 		// f.addBuiltin('s>d', this.stod);
 		// f.addBuiltin('sign', this.sign);
 		// f.addBuiltin('sm/rem', this.smrem);
@@ -316,10 +338,21 @@ export default class ForthBuiltins {
 		f.stack.push(f.fetch(aaddr));
 	}
 
+	static cfetch(f: Forth) {
+		const aaddr = f.stack.pop();
+		f.stack.push(f.fetch8(aaddr));
+	}
+
 	static store(f: Forth) {
 		const aaddr = f.stack.pop();
 		const x = f.stack.pop();
 		f.store(aaddr, x);
+	}
+
+	static cstore(f: Forth) {
+		const aaddr = f.stack.pop();
+		const x = f.stack.pop();
+		f.store8(aaddr, x);
 	}
 
 	static emit(f: Forth) {
@@ -836,5 +869,100 @@ export default class ForthBuiltins {
 		const xt = f.stack.pop();
 		const winfo = f.wordinfo(xt);
 		f.stack.push(winfo.dfa);
+	}
+
+	static picstart(f: Forth) {
+		const { picbuf, toPicbuf } = ForthBuiltins;
+		toPicbuf(picbuf);
+	}
+
+	static picend(f: Forth) {
+		const { picbuf, toPicbuf } = ForthBuiltins;
+		f.stack.pop();
+		f.stack.pop();
+
+		const len = picbuf - toPicbuf();
+		f.stack.push(toPicbuf());
+		f.stack.push(len);
+	}
+
+	static picdigit(f: Forth) {
+		const { base, toPicbuf } = ForthBuiltins;
+
+		const hi = f.stack.pop();
+		const lo = f.stack.pop();
+		const offset = toPicbuf() - 1;
+		const result = doPictureDigit(hi, lo, base(), f.cellmax);
+		f.store8(offset, result.char);
+		toPicbuf(offset);
+		f.stack.push(result.flo);
+		f.stack.push(result.fhi);
+	}
+
+	static picall(f: Forth) {
+		const { base, toPicbuf } = ForthBuiltins;
+		const b = base();
+		var hi = f.stack.pop();
+		var lo = f.stack.pop();
+
+		while (true) {
+			const offset = toPicbuf() - 1;
+			const result = doPictureDigit(hi, lo, b, f.cellmax);
+			f.store8(offset, result.char);
+			toPicbuf(offset);
+
+			if (result.flo === 0 && result.fhi === 0) break;
+			lo = result.flo;
+			hi = result.fhi;
+		}
+
+		f.stack.push(0);
+		f.stack.push(0);
+	}
+
+	static squote(f: Forth) {
+		const result = scan(f, '"');
+		if (typeof result === 'string') {
+			f.debug('parsed:', result);
+
+			const xt = f.words['(sliteral)'];
+			f.debug('compiling: (sliteral)', result);
+			f.write(xt);
+			f.writeString(result);
+			return;
+		}
+
+		// TODO
+		f.options.output.type('invalid used of "\n');
+	}
+
+	static sliteralRt(f: Forth) {
+		const length = f.fetch(f.ip);
+		const addr = f.ip + f.options.cellsize;
+		f.stack.push(addr);
+		f.stack.push(length);
+		f.ip += f.options.cellsize + length;
+	}
+
+	static cellp(f: Forth) {
+		f.stack.push(f.stack.pop() + f.options.cellsize);
+	}
+
+	static charp(f: Forth) {
+		f.stack.push(f.stack.pop() + 1);
+	}
+
+	static seq(f: Forth) {
+		const len2 = f.stack.pop();
+		const addr2 = f.stack.pop();
+		const len1 = f.stack.pop();
+		const addr1 = f.stack.pop();
+
+		if (len1 !== len2) f.stack.pushf(false);
+		else {
+			const str1 = f.readString(addr1, len1);
+			const str2 = f.readString(addr2, len2);
+			f.stack.pushf(str1 === str2);
+		}
 	}
 }

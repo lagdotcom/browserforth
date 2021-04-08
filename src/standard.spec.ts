@@ -17,12 +17,41 @@ describe('forth standard tests', () => {
 		}
 	}
 
+	it('supports <# # #s #>', async () =>
+		await t(
+			[': gp3 <# 1 0 # # #> s" 01" s= ;'],
+			['gp3', -1],
+			[': gp4 <# 1 0 #s #> s" 1" s= ;'],
+			['gp4', -1]
+		));
+
+	it("supports '", async () => t([': gt1 123 ;'], ["' gt1 execute", 123]));
+
+	it('supports (', async () =>
+		t(['( A comment)1234', 1234], [': pc1 ( A comment)1234 ; pc1', 1234]));
+
+	it('supports *', async () =>
+		t(
+			['0 0 *', 0],
+			['0 1 *', 0],
+			['1 0 *', 0],
+			['1 2 *', 2],
+			['2 1 *', 2],
+			['3 3 *', 9],
+			['-3 3 *', -9],
+			['3 -3 *', -9],
+			['-3 -3 *', 9]
+			// ['mid-uint+1 1 rshift 2 *', 'mid-uint+1'],
+			// ['mid-uint+1 2 rshift 4 *', 'mid-uint+1'],
+			// ['mid-uint+1 1 rshift mid-uint+1 or 2 *', 'mid-uint+1']
+		));
+
 	it('supports abs', async () =>
 		await t(
 			['0 abs', 0],
 			['1 abs', 1],
 			['-1 abs', 1]
-			// TODO: ['min-int abs', 'mid-uint+1'],
+			// ['min-int abs', 'mid-uint+1'],
 		));
 
 	it('supports base', async () =>
@@ -59,6 +88,15 @@ describe('forth standard tests', () => {
 			["' w1 >body here =", -1],
 			['w1 here 1 + =', -1],
 			['w1 here 2 + =', -1]
+		));
+
+	it('supports s"', async () =>
+		await t(
+			[': gc4 s" XY" ;'],
+			['gc4 swap drop', 2],
+			['gc4 drop dup c@ swap char+ c@', 88, 89],
+			[': gc5 s" A string"2drop ;'],
+			['gc5']
 		));
 
 	it('supports state', async () =>

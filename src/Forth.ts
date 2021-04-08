@@ -38,6 +38,7 @@ export type GetterSetter<T> = (x?: T) => T;
 export default class Forth {
 	private buffer: ArrayBuffer;
 	private builtins: ForthBuiltin[];
+	cellmax: number;
 	exception: ForthException;
 	fetch: (addr: number) => number;
 	ip: number;
@@ -65,6 +66,7 @@ export default class Forth {
 
 		this.buffer = new ArrayBuffer(this.options.memory);
 		this.builtins = [];
+		this.cellmax = 256 ** this.options.cellsize;
 		this.exception = 0;
 		this.mem = new DataView(this.buffer);
 
@@ -229,10 +231,10 @@ export default class Forth {
 					this.debug('js exception:', e);
 					this.exception = -1;
 				}
-			} else if (winfo.flags & HeaderFlags.IsConstant) {
-				this.stack.push(code);
-				return resolve();
-			} else if (winfo.flags & HeaderFlags.IsVariable) {
+			} else if (
+				winfo.flags &
+				(HeaderFlags.IsConstant | HeaderFlags.IsVariable)
+			) {
 				this.stack.push(code);
 				return resolve();
 			} else {
