@@ -33,6 +33,34 @@ describe('forth standard tests', () => {
 
 	it('supports bl', async () => await t(['bl', 32]));
 
+	it('supports constant', async () =>
+		await t(
+			['123 constant x123'],
+			['x123', 123],
+			[': equ constant ;'],
+			['x123 equ y123'],
+			['y123', 123]
+		));
+
+	it('supports does>', async () =>
+		await t(
+			[': does1 does> @ 1 + ;'],
+			[': does2 does> @ 2 + ;'],
+			['create cr1'],
+			['cr1 here =', -1],
+			['1 ,'],
+			['cr1 @', 1],
+			['does1'],
+			['cr1', 2],
+			['does2'],
+			['cr1', 3],
+			[': weird: create does> 1 + does> 2 + ;'],
+			['weird: w1'],
+			["' w1 >body here =", -1],
+			['w1 here 1 + =', -1],
+			['w1 here 2 + =', -1]
+		));
+
 	it('supports state', async () =>
 		await t(
 			[': gt8 state @ ; immediate'],
@@ -40,4 +68,10 @@ describe('forth standard tests', () => {
 			[': gt9 gt8 literal ;'],
 			['gt9 0=', 0]
 		));
+
+	it('supports variable', async () =>
+		await t(['variable v1'], ['123 v1 !'], ['v1 @', 123]));
+
+	it('supports >body', async () =>
+		await t(['create cr0'], ["' cr0 >body here =", -1]));
 });

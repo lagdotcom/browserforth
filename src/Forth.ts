@@ -136,6 +136,17 @@ export default class Forth {
 		return this.rstack.pbottom - this.here;
 	}
 
+	dump(start: number, length: number) {
+		var bytes = '';
+		const end = start + length;
+		for (var i = start; i < end; i++) {
+			const byte = this.mem.getUint8(i);
+			bytes += byte.toString(16) + ' ';
+		}
+
+		return bytes.trimEnd();
+	}
+
 	private allocSysVar(name: string) {
 		this.sys[name] = this.syso;
 		this.syso += this.options.cellsize;
@@ -203,13 +214,12 @@ export default class Forth {
 	async execute(xt: number) {
 		return new Promise<void>(async (resolve, reject) => {
 			const winfo = this.wordinfo(xt);
-			const code = this.fetch(winfo.cfa);
 
-			if (!(winfo.flags & HeaderFlags.IsWord)) {
+			if (!(winfo.flags & HeaderFlags.IsWord))
 				return reject(`trying to execute non-word: ${xt}`);
-			}
 
-			this.debug('execute:', winfo.name);
+			const code = this.fetch(winfo.cfa);
+			this.debug('execute:', winfo.name, code);
 
 			if (winfo.flags & HeaderFlags.IsBuiltin) {
 				try {
@@ -226,17 +236,22 @@ export default class Forth {
 				this.stack.push(code);
 				return resolve();
 			} else {
-				let ip = code;
-				if (winfo.flags & HeaderFlags.IsCreate) {
-					this.stack.push(winfo.dfa);
-					ip = winfo.cfa;
-				}
-				this.rstack.push(this.ip);
-				this.ip = ip;
+				if (winfo.flags & HeaderFlags.IsCreate) this.stack.push(winfo.dfa);
+				this.pushIp();
+				this.ip = code;
 				await this.runCpu();
 				return resolve();
 			}
 		});
+	}
+
+	pushIp() {
+		this.rstack.push(this.ip);
+	}
+
+	popIp() {
+		if (this.rstack.contents.length) this.ip = this.rstack.pop();
+		else this.ip = 0;
 	}
 
 	async runCpu() {
@@ -253,9 +268,11 @@ export default class Forth {
 		const addr = this.here + 1000;
 		const saddr = this.writeStringAt(addr, s);
 
+		this.ip = 0;
 		this.exception = 0;
 		this.stack.push(saddr);
 		this.stack.push(s.length);
+		this.rstack.clear();
 		return this.xw('evaluate');
 	}
 

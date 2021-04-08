@@ -87,7 +87,7 @@ export default class ForthBuiltins {
 		// f.addBuiltin('<#', this.picstart);
 		f.addBuiltin('=', this.eq);
 		f.addBuiltin('>', this.gt);
-		// f.addBuiltin('>body', this.tobody);
+		f.addBuiltin('>body', this.tobody);
 		// f.addBuiltin('>number', this.tonumber);
 		f.addBuiltin('>r', this.tor);
 		f.addBuiltin('?dup', this.qdup);
@@ -110,14 +110,13 @@ export default class ForthBuiltins {
 		f.addBuiltin('char', this.char);
 		// f.addBuiltin('char+', this.charp);
 		// f.addBuiltin('chars', this.chars);
-		// f.addBuiltin('constant', this.constant);
 		f.addBuiltin('count', this.count);
 		f.addBuiltin('cr', this.cr);
 		f.addBuiltin('create', this.create);
 		f.addBuiltin('decimal', this.decimal);
 		f.addBuiltin('depth', this.depth);
 		// f.addBuiltin('do', this.do);
-		// f.addBuiltin('does>', this.does);
+		f.addBuiltin('does>', this.does);
 		f.addBuiltin('drop', this.drop);
 		f.addBuiltin('dup', this.dup);
 		// f.addBuiltin('else', this.else);
@@ -174,7 +173,6 @@ export default class ForthBuiltins {
 		// f.addBuiltin('um/mod', this.ummod);
 		// f.addBuiltin('unloop', this.unloop);
 		// f.addBuiltin('until', this.until);
-		// f.addBuiltin('variable', this.variable);
 		// f.addBuiltin('while', this.while);
 		// f.addBuiltin('word', this.word);
 		f.addBuiltin('xor', this.xor);
@@ -184,6 +182,9 @@ export default class ForthBuiltins {
 		await f.runString(
 			': [char] char postpone literal ; immediate compile-only'
 		);
+		await f.runString(': nop ;');
+		await f.runString(': constant create , does> @ ;');
+		await f.runString(': variable create 0 , ;');
 
 		// --- core-ext
 		// f.addBuiltin('.(', this.dotbracket);
@@ -741,7 +742,7 @@ export default class ForthBuiltins {
 	}
 
 	static exit(f: Forth) {
-		f.ip = f.rstack.pop();
+		f.popIp();
 	}
 
 	static async colon(f: Forth) {
@@ -761,7 +762,9 @@ export default class ForthBuiltins {
 
 	static async semicolon(f: Forth) {
 		// postpone exit [
-		f.write(f.words.exit);
+		const xt = f.words.exit;
+		f.debug('compile: exit');
+		f.write(xt);
 		ForthBuiltins.interpretMode(f);
 	}
 
@@ -810,13 +813,28 @@ export default class ForthBuiltins {
 			f.debug('defining:', result);
 			f.header(result, HeaderFlags.IsCreate);
 
-			const xt = f.words.exit;
-			f.debug('compile: exit');
-			f.write(xt);
+			const xt = f.words.nop;
+			const winfo = f.wordinfo(xt);
+			f.debug(`${result} does> nop`);
+			f.write(winfo.dfa);
 			return;
 		}
 
 		// TODO
 		f.options.output.type('no word???');
+	}
+
+	static does(f: Forth) {
+		const xt = f.link + f.options.cellsize;
+		const winfo = f.wordinfo(xt);
+		f.debug(`${winfo.name} does> ${f.ip}`);
+		f.store(winfo.cfa, f.ip);
+		f.popIp();
+	}
+
+	static tobody(f: Forth) {
+		const xt = f.stack.pop();
+		const winfo = f.wordinfo(xt);
+		f.stack.push(winfo.dfa);
 	}
 }
