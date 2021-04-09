@@ -90,6 +90,12 @@ describe('forth standard tests', () => {
 			['w1 here 2 + =', -1]
 		));
 
+	it('supports hold', async () =>
+		await t([': gp1 <# 65 hold 66 hold 0 0 #> s" BA" s= ;'], ['gp1', -1]));
+
+	it('supports holds', async () =>
+		await t(['<# 123 0 #s s" Number: " holds #> s" Number: 123" s=', -1]));
+
 	it('supports s"', async () =>
 		await t(
 			[': gc4 s" XY" ;'],

@@ -152,7 +152,8 @@ export default class ForthBuiltins {
 		// f.addBuiltin('find', this.find);
 		// f.addBuiltin('fm/mod', this.fmmod);
 		f.addBuiltin('here', this.here);
-		// f.addBuiltin('hold', this.hold);
+		f.addBuiltin('hold', this.hold);
+		f.addBuiltin('holds', this.holds);
 		// f.addBuiltin('i', this.i);
 		// f.addBuiltin('if', this.if);
 		f.addBuiltin('immediate', this.immediate);
@@ -179,7 +180,7 @@ export default class ForthBuiltins {
 		// f.addBuiltin('repeat', this.repeat);
 		f.addBuiltin('rot', this.rot);
 		// f.addBuiltin('rshift', this.rshift);
-		f.addBuiltin('s"', this.squote, IsImmediate | IsCompileOnly);
+		f.addBuiltin('s"', this.squote, IsImmediate);
 		// f.addBuiltin('s>d', this.stod);
 		// f.addBuiltin('sign', this.sign);
 		// f.addBuiltin('sm/rem', this.smrem);
@@ -921,14 +922,22 @@ export default class ForthBuiltins {
 	}
 
 	static squote(f: Forth) {
+		const state = ForthBuiltins.state();
 		const result = scan(f, '"');
 		if (typeof result === 'string') {
 			f.debug('parsed:', result);
 
-			const xt = f.words['(sliteral)'];
-			f.debug('compiling: (sliteral)', result);
-			f.write(xt);
-			f.writeString(result);
+			if (state) {
+				const xt = f.words['(sliteral)'];
+				f.debug('compiling: (sliteral)', result);
+				f.write(xt);
+			}
+
+			const addr = f.writeString(result);
+			if (!state) {
+				f.stack.push(addr);
+				f.stack.push(result.length);
+			}
 			return;
 		}
 
@@ -964,5 +973,23 @@ export default class ForthBuiltins {
 			const str2 = f.readString(addr2, len2);
 			f.stack.pushf(str1 === str2);
 		}
+	}
+
+	static hold(f: Forth) {
+		const { toPicbuf } = ForthBuiltins;
+		const char = f.stack.pop();
+		const addr = toPicbuf() - 1;
+		f.store8(addr, char);
+		toPicbuf(addr);
+	}
+
+	static holds(f: Forth) {
+		const { toPicbuf } = ForthBuiltins;
+		const len = f.stack.pop();
+		const src = f.stack.pop();
+		const str = f.readString(src, len);
+		const addr = toPicbuf() - len;
+		for (var i = 0; i < len; i++) f.store8(addr + i, str.charCodeAt(i));
+		toPicbuf(addr);
 	}
 }

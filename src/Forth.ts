@@ -355,7 +355,9 @@ export default class Forth {
 	writeString(str: string, override?: number) {
 		const length = typeof override === 'undefined' ? str.length : override;
 		this.write(length);
+		const addr = this.here;
 		for (var i = 0; i < str.length; i++) this.write8(str.charCodeAt(i));
+		return addr;
 	}
 
 	writeStringAt(addr: number, str: string, override?: number) {
