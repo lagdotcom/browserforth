@@ -181,7 +181,7 @@ export default class ForthBuiltins {
 		// f.addBuiltin('rshift', this.rshift);
 		f.addBuiltin('s"', this.squote, IsImmediate);
 		// f.addBuiltin('s>d', this.stod);
-		// f.addBuiltin('sign', this.sign);
+		f.addBuiltin('sign', this.picsign);
 		// f.addBuiltin('sm/rem', this.smrem);
 		f.addBuiltin('source', this.source);
 		// f.addBuiltin('space', this.space);
@@ -990,6 +990,16 @@ export default class ForthBuiltins {
 		const addr = toPicbuf() - len;
 		for (var i = 0; i < len; i++) f.store8(addr + i, str.charCodeAt(i));
 		toPicbuf(addr);
+	}
+
+	static picsign(f: Forth) {
+		const { toPicbuf } = ForthBuiltins;
+		const val = f.signed(f.stack.pop());
+		if (val < 0) {
+			const addr = toPicbuf() - 1;
+			f.store8(addr, 45); // '-'
+			toPicbuf(addr);
+		}
 	}
 
 	static abort(f: Forth) {

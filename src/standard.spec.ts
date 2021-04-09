@@ -105,6 +105,9 @@ describe('forth standard tests', () => {
 			['gc5']
 		));
 
+	it('supports sign', async () =>
+		await t(['<# -1 sign 0 sign -1 sign 0 0 #> s" --" s=', -1]));
+
 	it('supports state', async () =>
 		await t(
 			[': gt8 state @ ; immediate'],
