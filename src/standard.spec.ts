@@ -25,7 +25,13 @@ describe('forth standard tests', () => {
 			['gp4', -1]
 		));
 
-	it("supports '", async () => t([': gt1 123 ;'], ["' gt1 execute", 123]));
+	it("supports ' and [']", async () =>
+		t(
+			[': gt1 123 ;'],
+			["' gt1 execute", 123],
+			[": gt2 ['] gt1 ;"],
+			['gt2 execute', 123]
+		));
 
 	it('supports (', async () =>
 		t(['( A comment)1234', 1234], [': pc1 ( A comment)1234 ; pc1', 1234]));

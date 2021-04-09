@@ -32,6 +32,13 @@ function doPictureDigit(hi: number, lo: number, base: number, max: number) {
 	return { flo, fhi, char: digit.charCodeAt(0) };
 }
 
+function aligned(addr: number, mod: number) {
+	const offset = addr % mod;
+	return offset ? addr - offset + mod : addr;
+}
+
+const picbufSize = 16;
+
 export default class ForthBuiltins {
 	static base: GetterSetter<number>;
 	static picbuf: number;
@@ -52,7 +59,7 @@ export default class ForthBuiltins {
 		ForthBuiltins.sourceLen = f.addVariable('source-len', 0);
 		ForthBuiltins.toIn = f.addVariable('>in', 0);
 
-		f.here += 16;
+		f.here += picbufSize;
 		ForthBuiltins.picbuf = f.here;
 		f.addConstant('picbuf', ForthBuiltins.picbuf);
 		ForthBuiltins.toPicbuf = f.addVariable('>picbuf', ForthBuiltins.picbuf);
@@ -119,8 +126,8 @@ export default class ForthBuiltins {
 		f.addBuiltin('abort"', this.aborts);
 		f.addBuiltin('abs', this.abs);
 		// f.addBuiltin('accept', this.accept);
-		// f.addBuiltin('align', this.align);
-		// f.addBuiltin('aligned', this.aligned);
+		f.addBuiltin('align', this.align);
+		f.addBuiltin('aligned', this.aligned);
 		f.addBuiltin('allot', this.allot);
 		f.addBuiltin('and', this.and);
 		// f.addBuiltin('begin', this.begin);
@@ -199,8 +206,8 @@ export default class ForthBuiltins {
 		// f.addBuiltin('word', this.word);
 		f.addBuiltin('xor', this.xor);
 		f.addBuiltin('[', this.interpretMode, IsImmediate | IsCompileOnly);
-		// f.addBuiltin("[']", this.quoteimm, IsImmediate | IsCompileOnly);
 		f.addBuiltin(']', this.compileMode);
+		await f.runString(": ['] ' postpone literal ; immediate compile-only");
 		await f.runString(
 			': [char] char postpone literal ; immediate compile-only'
 		);
@@ -844,6 +851,7 @@ export default class ForthBuiltins {
 		const result = scan(f, ...whitespaces);
 		if (typeof result === 'string') {
 			f.debug('defining:', result);
+			f.here = aligned(f.here, f.options.cellsize);
 			f.header(result, HeaderFlags.IsCreate);
 
 			const xt = f.words.nop;
@@ -1015,5 +1023,14 @@ export default class ForthBuiltins {
 
 		// TODO
 		f.options.output.type('invalid used of "\n');
+	}
+
+	static align(f: Forth) {
+		f.here = aligned(f.here, f.options.cellsize);
+	}
+
+	static aligned(f: Forth) {
+		const val = f.stack.pop();
+		f.stack.push(aligned(val, f.options.cellsize));
 	}
 }
