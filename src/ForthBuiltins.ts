@@ -115,8 +115,8 @@ export default class ForthBuiltins {
 		f.addBuiltin('>r', this.tor);
 		f.addBuiltin('?dup', this.qdup);
 		f.addBuiltin('@', this.fetch);
-		// f.addBuiltin('abort', this.abort);
-		// f.addBuiltin('abort"', this.abortq);
+		f.addBuiltin('abort', this.abort);
+		f.addBuiltin('abort"', this.aborts);
 		f.addBuiltin('abs', this.abs);
 		// f.addBuiltin('accept', this.accept);
 		// f.addBuiltin('align', this.align);
@@ -153,7 +153,6 @@ export default class ForthBuiltins {
 		// f.addBuiltin('fm/mod', this.fmmod);
 		f.addBuiltin('here', this.here);
 		f.addBuiltin('hold', this.hold);
-		f.addBuiltin('holds', this.holds);
 		// f.addBuiltin('i', this.i);
 		// f.addBuiltin('if', this.if);
 		f.addBuiltin('immediate', this.immediate);
@@ -234,7 +233,7 @@ export default class ForthBuiltins {
 		// f.addBuiltin('erase', this.erase);
 		// f.addBuiltin('false', this.false);
 		f.addBuiltin('hex', this.hex);
-		// f.addBuiltin('holds', this.holds);
+		f.addBuiltin('holds', this.holds);
 		// f.addBuiltin('is', this.is);
 		// f.addBuiltin('marker', this.marker);
 		f.addBuiltin('nip', this.nip);
@@ -991,5 +990,20 @@ export default class ForthBuiltins {
 		const addr = toPicbuf() - len;
 		for (var i = 0; i < len; i++) f.store8(addr + i, str.charCodeAt(i));
 		toPicbuf(addr);
+	}
+
+	static abort(f: Forth) {
+		return f.throw(ForthException.abort, 'abort');
+	}
+
+	static aborts(f: Forth) {
+		const result = scan(f, '"');
+		if (typeof result === 'string') {
+			f.debug('parsed:', result);
+			return f.throw(ForthException.aborts, result);
+		}
+
+		// TODO
+		f.options.output.type('invalid used of "\n');
 	}
 }

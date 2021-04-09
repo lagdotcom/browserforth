@@ -8,6 +8,7 @@
 		"dev": "webpack --mode development",
 		"start": "webpack serve --mode development --content-base ./dist --open",
 		"lint": "prettier --write src",
+		"compat": "ts-node -O {\\\"module\\\":\\\"commonjs\\\"} compat.ts",
 		"test": "mocha -r esm -r ts-node/register src/**/*.spec.ts"
 	},
 	"author": "Lag.Com <lagdotcom@gmail.com>",
