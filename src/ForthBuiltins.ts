@@ -103,10 +103,10 @@ export default class ForthBuiltins {
 		f.addBuiltin('0=', this.zeq);
 		f.addBuiltin('1+', this.inc);
 		f.addBuiltin('1-', this.dec);
-		// f.addBuiltin('2!', this.store2);
+		f.addBuiltin('2!', this.store2);
 		// f.addBuiltin('2*', this.mul2);
 		// f.addBuiltin('2/', this.div2);
-		// f.addBuiltin('2@', this.fetch2);
+		f.addBuiltin('2@', this.fetch2);
 		f.addBuiltin('2drop', this.drop2);
 		f.addBuiltin('2dup', this.dup2);
 		// f.addBuiltin('2over', this.over2);
@@ -136,10 +136,10 @@ export default class ForthBuiltins {
 		f.addBuiltin('c,', this.ccomma);
 		f.addBuiltin('c@', this.cfetch);
 		f.addBuiltin('cell+', this.cellp);
-		// f.addBuiltin('cells', this.cells);
+		f.addBuiltin('cells', this.cells);
 		f.addBuiltin('char', this.char);
 		f.addBuiltin('char+', this.charp);
-		// f.addBuiltin('chars', this.chars);
+		f.addBuiltin('chars', this.chars);
 		f.addBuiltin('count', this.count);
 		f.addBuiltin('cr', this.cr);
 		f.addBuiltin('create', this.create);
@@ -155,7 +155,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('evaluate', this.evaluate);
 		f.addBuiltin('execute', this.execute);
 		f.addBuiltin('exit', this.exit);
-		// f.addBuiltin('fill', this.fill);
+		f.addBuiltin('fill', this.fill);
 		// f.addBuiltin('find', this.find);
 		// f.addBuiltin('fm/mod', this.fmmod);
 		f.addBuiltin('here', this.here);
@@ -191,13 +191,13 @@ export default class ForthBuiltins {
 		f.addBuiltin('sign', this.picsign);
 		// f.addBuiltin('sm/rem', this.smrem);
 		f.addBuiltin('source', this.source);
-		// f.addBuiltin('space', this.space);
-		// f.addBuiltin('spaces', this.spaces);
+		f.addBuiltin('space', this.space);
+		f.addBuiltin('spaces', this.spaces);
 		f.addBuiltin('swap', this.swap);
 		// f.addBuiltin('then', this.then);
 		f.addBuiltin('type', this.type);
 		f.addBuiltin('u.', this.udot);
-		// f.addBuiltin('u<', this.ult);
+		f.addBuiltin('u<', this.ult);
 		// f.addBuiltin('um*', this.ummul);
 		// f.addBuiltin('um/mod', this.ummod);
 		// f.addBuiltin('unloop', this.unloop);
@@ -229,6 +229,7 @@ export default class ForthBuiltins {
 		// f.addBuiltin('action-of', this.actionof);
 		// f.addBuiltin('again', this.again);
 		// f.addBuiltin('buffer:', this.buffer);
+		await f.runString(': buffer: create allot ;');
 		// f.addBuiltin('c"', this.cquote);
 		// f.addBuiltin('case', this.case);
 		// f.addBuiltin('compile,', this.compile);
@@ -344,10 +345,14 @@ export default class ForthBuiltins {
 		const aaddr = f.stack.pop();
 		f.stack.push(f.fetch(aaddr));
 	}
-
 	static cfetch(f: Forth) {
 		const aaddr = f.stack.pop();
 		f.stack.push(f.fetch8(aaddr));
+	}
+	static fetch2(f: Forth) {
+		const aaddr = f.stack.pop();
+		f.stack.push(f.fetch(aaddr + f.options.cellsize));
+		f.stack.push(f.fetch(aaddr));
 	}
 
 	static store(f: Forth) {
@@ -355,11 +360,17 @@ export default class ForthBuiltins {
 		const x = f.stack.pop();
 		f.store(aaddr, x);
 	}
-
 	static cstore(f: Forth) {
 		const aaddr = f.stack.pop();
 		const x = f.stack.pop();
 		f.store8(aaddr, x);
+	}
+	static store2(f: Forth) {
+		const aaddr = f.stack.pop();
+		const x2 = f.stack.pop();
+		const x1 = f.stack.pop();
+		f.store(aaddr, x2);
+		f.store(aaddr + f.options.cellsize, x1);
 	}
 
 	static emit(f: Forth) {
@@ -486,6 +497,11 @@ export default class ForthBuiltins {
 	static lt(f: Forth) {
 		const n2 = f.signed(f.stack.pop());
 		const n1 = f.signed(f.stack.pop());
+		f.stack.pushf(n1 < n2);
+	}
+	static ult(f: Forth) {
+		const n2 = f.stack.pop();
+		const n1 = f.stack.pop();
 		f.stack.pushf(n1 < n2);
 	}
 
@@ -963,10 +979,14 @@ export default class ForthBuiltins {
 	static cellp(f: Forth) {
 		f.stack.push(f.stack.pop() + f.options.cellsize);
 	}
+	static cells(f: Forth) {
+		f.stack.push(f.stack.pop() * f.options.cellsize);
+	}
 
 	static charp(f: Forth) {
 		f.stack.push(f.stack.pop() + 1);
 	}
+	static chars() {}
 
 	static seq(f: Forth) {
 		const len2 = f.stack.pop();
@@ -1032,5 +1052,21 @@ export default class ForthBuiltins {
 	static aligned(f: Forth) {
 		const val = f.stack.pop();
 		f.stack.push(aligned(val, f.options.cellsize));
+	}
+
+	static space(f: Forth) {
+		f.options.output.emit(' ');
+	}
+
+	static spaces(f: Forth) {
+		const amount = f.signed(f.stack.pop());
+		for (var i = 0; i < amount; i++) f.options.output.emit(' ');
+	}
+
+	static fill(f: Forth) {
+		const char = f.stack.pop();
+		const len = f.signed(f.stack.pop());
+		const addr = f.stack.pop();
+		for (var i = 0; i < len; i++) f.store8(addr + i, char);
 	}
 }

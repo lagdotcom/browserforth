@@ -52,6 +52,23 @@ describe('forth standard tests', () => {
 			// ['mid-uint+1 1 rshift mid-uint+1 or 2 *', 'mid-uint+1']
 		));
 
+	it('supports , 2@ 2! cell+', async () =>
+		await t(
+			['here 1 , here 2 , constant 2nd constant 1st'],
+			['1st 2nd u<', -1],
+			['1st cell+ 2nd =', -1],
+			['1st 1 cells + 2nd =', -1],
+			['1st @ 2nd @', 1, 2],
+			['5 1st !'],
+			['1st @ 2nd @', 5, 2],
+			['6 2nd !'],
+			['1st @ 2nd @', 5, 6],
+			['1st 2@', 6, 5],
+			['2 1 1st 2!'],
+			['1st 2@', 2, 1]
+			// ['1s 1st ! 1st @ 1s =', -1]
+		));
+
 	it('supports abs', async () =>
 		await t(
 			['0 abs', 0],
@@ -94,6 +111,15 @@ describe('forth standard tests', () => {
 			["' w1 >body here =", -1],
 			['w1 here 1 + =', -1],
 			['w1 here 2 + =', -1]
+		));
+
+	it('supports fill', async () =>
+		await t(
+			['3 buffer: fbuf'],
+			[': seebuf fbuf c@ fbuf 1+ c@ fbuf 1+ 1+ c@ ;'],
+			['fbuf 0 20 fill seebuf', 0, 0, 0],
+			['fbuf 1 20 fill seebuf', 20, 0, 0],
+			['fbuf 3 30 fill seebuf', 30, 30, 30]
 		));
 
 	it('supports hold', async () =>
