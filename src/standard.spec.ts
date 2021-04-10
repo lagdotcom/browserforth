@@ -3,8 +3,9 @@ import { expect } from 'chai';
 import Forth from './Forth';
 
 describe('forth standard tests', () => {
+	const cellsize = 2;
 	async function t(...lines: [forth: string, ...outputs: number[]][]) {
-		const f = new Forth({ exceptions: true });
+		const f = new Forth({ exceptions: true, cellsize });
 		await f.initialise();
 
 		for (var i = 0; i < lines.length; i++) {
@@ -283,6 +284,24 @@ describe('forth standard tests', () => {
 			['gt8', 0],
 			[': gt9 gt8 literal ;'],
 			['gt9 0=', 0]
+		));
+
+	it('supports um/mod', async () =>
+		await t(
+			['0 0 1 um/mod', 0, 0],
+			['1 0 1 um/mod', 0, 1],
+			['1 0 2 um/mod', 1, 0],
+			['3 0 2 um/mod', 1, 1]
+		));
+
+	it('supports um*', async () =>
+		await t(
+			['0 0 um*', 0, 0],
+			['0 1 um*', 0, 0],
+			['1 0 um*', 0, 0],
+			['1 2 um*', 2, 0],
+			['2 1 um*', 2, 0],
+			['3 3 um*', 9, 0]
 		));
 
 	it('supports variable', async () =>

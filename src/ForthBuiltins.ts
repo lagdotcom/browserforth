@@ -199,8 +199,8 @@ export default class ForthBuiltins {
 		f.addBuiltin('type', this.type);
 		f.addBuiltin('u.', this.udot);
 		f.addBuiltin('u<', this.ult);
-		// f.addBuiltin('um*', this.ummul);
-		// f.addBuiltin('um/mod', this.ummod);
+		f.addBuiltin('um*', this.ummul);
+		f.addBuiltin('um/mod', this.ummod);
 		// f.addBuiltin('unloop', this.unloop);
 		f.addBuiltin('until', this.until, IsImmediate | IsCompileOnly);
 		f.addBuiltin('while', this.while, IsImmediate | IsCompileOnly);
@@ -1251,6 +1251,19 @@ export default class ForthBuiltins {
 		f.stack.push(rem);
 		f.stack.push(div);
 	}
+	static ummod(f: Forth) {
+		const u = f.stack.pop();
+		const hi = f.stack.pop();
+		const lo = f.stack.pop();
+
+		if (u == 0) return f.throw(ForthException.divzero, 'division by zero');
+
+		const full = hi * f.cellmax + lo;
+		const div = Math.floor(full / u);
+		const rem = full % u;
+		f.stack.push(rem);
+		f.stack.push(div);
+	}
 
 	// TODO: incorrect (see tests)
 	static smrem(f: Forth) {
@@ -1271,6 +1284,15 @@ export default class ForthBuiltins {
 		const n2 = f.signed(f.stack.pop());
 		const n1 = f.signed(f.stack.pop());
 		const d = n1 * n2;
+		const lo = d % f.cellmax;
+		const hi = Math.floor(d / f.cellmax);
+		f.stack.push(lo);
+		f.stack.push(hi);
+	}
+	static ummul(f: Forth) {
+		const u2 = f.stack.pop();
+		const u1 = f.stack.pop();
+		const d = u1 * u2;
 		const lo = d % f.cellmax;
 		const hi = Math.floor(d / f.cellmax);
 		f.stack.push(lo);
