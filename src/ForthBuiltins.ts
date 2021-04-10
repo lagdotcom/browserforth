@@ -6,6 +6,7 @@ function isWhitespace(ch: string) {
 	return ch == ' ' || ch == '\r' || ch == '\n' || ch == '\t';
 }
 
+// TODO: turn into a primitive
 function scan(f: Forth, ...until: string[]) {
 	const { sourceAddr, sourceLen, toIn } = ForthBuiltins;
 	let current = '';
@@ -21,6 +22,7 @@ function scan(f: Forth, ...until: string[]) {
 	if (current) return current;
 }
 
+// TODO: double-width numbers
 function doPictureDigit(hi: number, lo: number, base: number, max: number) {
 	var full = lo + hi * max;
 	const digit = (full % base).toString(base);
@@ -38,6 +40,7 @@ function aligned(addr: number, mod: number) {
 }
 
 export default class ForthBuiltins {
+	// TODO: remove the need for these; they prevent saving as binary
 	static base: GetterSetter<number>;
 	static picbuf: number;
 	static sourceAddr: GetterSetter<number>;
@@ -229,7 +232,6 @@ export default class ForthBuiltins {
 		// f.addBuiltin('?do', this.qdo);
 		// f.addBuiltin('action-of', this.actionof);
 		// f.addBuiltin('again', this.again);
-		// f.addBuiltin('buffer:', this.buffer);
 		await f.runString(': buffer: create allot ;');
 		// f.addBuiltin('c"', this.cquote);
 		// f.addBuiltin('case', this.case);
@@ -930,6 +932,7 @@ export default class ForthBuiltins {
 		f.stack.push(len);
 	}
 
+	// TODO: double-width numbers
 	static picdigit(f: Forth) {
 		const { base, toPicbuf } = ForthBuiltins;
 
@@ -943,6 +946,7 @@ export default class ForthBuiltins {
 		f.stack.push(result.fhi);
 	}
 
+	// TODO: double-width numbers
 	static picall(f: Forth) {
 		const { base, toPicbuf } = ForthBuiltins;
 		const b = base();
@@ -1140,6 +1144,7 @@ export default class ForthBuiltins {
 		}
 	}
 
+	// TODO: refactor to primitives
 	static until(f: Forth) {
 		const dest = f.cstack.pop();
 		const xt = f.words['(branch0)'];
@@ -1148,6 +1153,7 @@ export default class ForthBuiltins {
 		f.write(dest);
 	}
 
+	// TODO: refactor to primitives
 	static while(f: Forth) {
 		const dest = f.cstack.pop();
 		const xt = f.words['(branch0)'];
@@ -1161,6 +1167,7 @@ export default class ForthBuiltins {
 		f.cstack.push(dest);
 	}
 
+	// TODO: refactor to primitives
 	static repeat(f: Forth) {
 		const dest = f.cstack.pop();
 		const orig = f.cstack.pop();
@@ -1172,6 +1179,7 @@ export default class ForthBuiltins {
 		f.store(orig, f.here);
 	}
 
+	// TODO: refactor to primitives
 	static if(f: Forth) {
 		const xt = f.words['(branch0)'];
 		f.debug('compile: (branch0)', '???');
@@ -1182,6 +1190,7 @@ export default class ForthBuiltins {
 		f.cstack.push(orig);
 	}
 
+	// TODO: refactor to primitives
 	static else(f: Forth) {
 		const xt = f.words['(branch)'];
 		f.debug('compile: (branch)', '???');
@@ -1195,6 +1204,7 @@ export default class ForthBuiltins {
 		f.cstack.push(orig);
 	}
 
+	// TODO: refactor to primitives
 	static then(f: Forth) {
 		const orig = f.cstack.pop();
 		f.debug('resolve:', orig, f.here);
@@ -1238,6 +1248,7 @@ export default class ForthBuiltins {
 	}
 
 	// TODO: incorrect (see tests)
+	// TODO: double-width numbers
 	static fmmod(f: Forth) {
 		const n = f.signed(f.stack.pop());
 		const hi = f.stack.pop();
@@ -1251,6 +1262,7 @@ export default class ForthBuiltins {
 		f.stack.push(rem);
 		f.stack.push(div);
 	}
+	// TODO: double-width numbers
 	static ummod(f: Forth) {
 		const u = f.stack.pop();
 		const hi = f.stack.pop();
@@ -1266,6 +1278,7 @@ export default class ForthBuiltins {
 	}
 
 	// TODO: incorrect (see tests)
+	// TODO: double-width numbers
 	static smrem(f: Forth) {
 		const n = f.signed(f.stack.pop());
 		const hi = f.stack.pop();
@@ -1280,6 +1293,7 @@ export default class ForthBuiltins {
 		f.stack.push(div);
 	}
 
+	// TODO: double-width numbers
 	static mmul(f: Forth) {
 		const n2 = f.signed(f.stack.pop());
 		const n1 = f.signed(f.stack.pop());
@@ -1289,6 +1303,7 @@ export default class ForthBuiltins {
 		f.stack.push(lo);
 		f.stack.push(hi);
 	}
+	// TODO: double-width numbers
 	static ummul(f: Forth) {
 		const u2 = f.stack.pop();
 		const u1 = f.stack.pop();
