@@ -76,9 +76,12 @@ export default class ForthBuiltins {
 
 		// --- nonstandard
 		f.addBuiltin('compile-only', this.compileonly);
+		f.addBuiltin('debug!', this.setdebug);
 		f.addBuiltin('s=', this.seq);
 		f.addBuiltin('(literal)', this.literalRt);
 		f.addBuiltin('(sliteral)', this.sliteralRt);
+		f.addBuiltin('(branch)', this.branch);
+		f.addBuiltin('(branch0)', this.branch0);
 
 		// --- core
 		f.addBuiltin('!', this.store);
@@ -130,7 +133,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('aligned', this.aligned);
 		f.addBuiltin('allot', this.allot);
 		f.addBuiltin('and', this.and);
-		// f.addBuiltin('begin', this.begin);
+		f.addBuiltin('begin', this.begin, IsImmediate | IsCompileOnly);
 		f.addBuiltin('bl', this.bl);
 		f.addBuiltin('c!', this.cstore);
 		f.addBuiltin('c,', this.ccomma);
@@ -149,7 +152,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('does>', this.does);
 		f.addBuiltin('drop', this.drop);
 		f.addBuiltin('dup', this.dup);
-		// f.addBuiltin('else', this.else);
+		f.addBuiltin('else', this.else, IsImmediate | IsCompileOnly);
 		f.addBuiltin('emit', this.emit);
 		// f.addBuiltin('environment?', this.envq);
 		f.addBuiltin('evaluate', this.evaluate);
@@ -161,7 +164,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('here', this.here);
 		f.addBuiltin('hold', this.hold);
 		// f.addBuiltin('i', this.i);
-		// f.addBuiltin('if', this.if);
+		f.addBuiltin('if', this.if, IsImmediate | IsCompileOnly);
 		f.addBuiltin('immediate', this.immediate);
 		f.addBuiltin('invert', this.invert);
 		// f.addBuiltin('j', this.j);
@@ -183,7 +186,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('r>', this.fromr);
 		f.addBuiltin('r@', this.rpeek);
 		f.addBuiltin('recurse', this.recurse, IsImmediate | IsCompileOnly);
-		// f.addBuiltin('repeat', this.repeat);
+		f.addBuiltin('repeat', this.repeat, IsImmediate | IsCompileOnly);
 		f.addBuiltin('rot', this.rot);
 		// f.addBuiltin('rshift', this.rshift);
 		f.addBuiltin('s"', this.squote, IsImmediate);
@@ -194,15 +197,15 @@ export default class ForthBuiltins {
 		f.addBuiltin('space', this.space);
 		f.addBuiltin('spaces', this.spaces);
 		f.addBuiltin('swap', this.swap);
-		// f.addBuiltin('then', this.then);
+		f.addBuiltin('then', this.then, IsImmediate | IsCompileOnly);
 		f.addBuiltin('type', this.type);
 		f.addBuiltin('u.', this.udot);
 		f.addBuiltin('u<', this.ult);
 		// f.addBuiltin('um*', this.ummul);
 		// f.addBuiltin('um/mod', this.ummod);
 		// f.addBuiltin('unloop', this.unloop);
-		// f.addBuiltin('until', this.until);
-		// f.addBuiltin('while', this.while);
+		f.addBuiltin('until', this.until, IsImmediate | IsCompileOnly);
+		f.addBuiltin('while', this.while, IsImmediate | IsCompileOnly);
 		// f.addBuiltin('word', this.word);
 		f.addBuiltin('xor', this.xor);
 		f.addBuiltin('[', this.interpretMode, IsImmediate | IsCompileOnly);
@@ -826,6 +829,8 @@ export default class ForthBuiltins {
 	}
 
 	static async semicolon(f: Forth) {
+		// TODO: check cstack
+
 		// postpone exit [
 		const xt = f.words.exit;
 		f.debug('compile: exit');
@@ -1103,5 +1108,90 @@ export default class ForthBuiltins {
 		const xt = f.link + f.options.cellsize;
 		f.debug('compile:', f.wordinfo(xt).name);
 		f.write(xt);
+	}
+
+	static setdebug(f: Forth) {
+		const x = f.stack.pop();
+		f.options.debug = x !== 0;
+	}
+
+	static begin(f: Forth) {
+		f.cstack.push(f.here);
+		f.debug('dest:', f.here);
+	}
+
+	static branch(f: Forth) {
+		f.ip = f.fetch(f.ip);
+	}
+
+	static branch0(f: Forth) {
+		const x = f.stack.pop();
+		const dest = f.fetch(f.ip);
+		if (x) f.ip += f.options.cellsize;
+		else {
+			// f.debug('branch0 passed test');
+			f.ip = dest;
+		}
+	}
+
+	static until(f: Forth) {
+		const dest = f.cstack.pop();
+		const xt = f.words['(branch0)'];
+		f.debug('compile: (branch0)', dest);
+		f.write(xt);
+		f.write(dest);
+	}
+
+	static while(f: Forth) {
+		const dest = f.cstack.pop();
+		const xt = f.words['(branch0)'];
+		f.debug('compile: (branch0)', '???');
+		f.write(xt);
+		const orig = f.here;
+		f.write(-1);
+		f.debug('orig:', orig);
+		f.cstack.push(orig);
+		// f.debug('dest:', dest);
+		f.cstack.push(dest);
+	}
+
+	static repeat(f: Forth) {
+		const dest = f.cstack.pop();
+		const orig = f.cstack.pop();
+		const xt = f.words['(branch)'];
+		f.debug('compile: (branch)', dest);
+		f.write(xt);
+		f.write(dest);
+		f.debug('resolve:', orig, f.here);
+		f.store(orig, f.here);
+	}
+
+	static if(f: Forth) {
+		const xt = f.words['(branch0)'];
+		f.debug('compile: (branch0)', '???');
+		f.write(xt);
+		const orig = f.here;
+		f.write(-1);
+		f.debug('orig:', orig);
+		f.cstack.push(orig);
+	}
+
+	static else(f: Forth) {
+		const xt = f.words['(branch)'];
+		f.debug('compile: (branch)', '???');
+		f.write(xt);
+		const orig = f.here;
+		f.write(-1);
+		const old = f.cstack.pop();
+		f.debug('resolve:', old, f.here);
+		f.store(old, f.here);
+		f.debug('orig:', orig);
+		f.cstack.push(orig);
+	}
+
+	static then(f: Forth) {
+		const orig = f.cstack.pop();
+		f.debug('resolve:', orig, f.here);
+		f.store(orig, f.here);
 	}
 }

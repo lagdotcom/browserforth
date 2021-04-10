@@ -11,6 +11,7 @@ import Stack32 from './stack/Stack32';
 
 interface ForthOptions {
 	cellsize: number;
+	cstacksize: number;
 	debug: boolean;
 	exceptions: boolean;
 	input: Input;
@@ -39,6 +40,7 @@ export default class Forth {
 	private buffer: ArrayBuffer;
 	private builtins: ForthBuiltin[];
 	cellmax: number;
+	cstack: Stack;
 	exception: ForthException;
 	fetch: (addr: number) => number;
 	ip: number;
@@ -47,6 +49,7 @@ export default class Forth {
 	rstack: Stack;
 	signed: (x: number) => number;
 	stack: Stack;
+	stackptr: number;
 	store: (addr: number, x: number) => number;
 	sys: { [name: string]: number };
 	syso: number;
@@ -60,6 +63,7 @@ export default class Forth {
 			input: options.input || new NullInput(),
 			memory: options.memory || 60000,
 			output: options.output || new NullOutput(),
+			cstacksize: options.cstacksize || 64,
 			rstacksize: options.rstacksize || 64,
 			stacksize: options.stacksize || 64,
 		};
@@ -69,38 +73,20 @@ export default class Forth {
 		this.cellmax = 256 ** this.options.cellsize;
 		this.exception = 0;
 		this.mem = new DataView(this.buffer);
+		this.stackptr = this.options.memory;
 
 		if (this.options.cellsize == 2) {
-			this.stack = new Stack16(
-				this.mem,
-				this.options.memory,
-				this.options.stacksize
-			);
-			this.rstack = new Stack16(
-				this.mem,
-				this.options.memory - this.options.stacksize,
-				this.options.rstacksize
-			);
-
 			this.fetch = this.fetch16;
 			this.signed = this.signed16;
 			this.store = this.store16;
 		} else if (this.options.cellsize == 4) {
-			this.stack = new Stack32(
-				this.mem,
-				this.options.memory,
-				this.options.stacksize
-			);
-			this.rstack = new Stack32(
-				this.mem,
-				this.options.memory - this.options.stacksize,
-				this.options.rstacksize
-			);
-
 			this.fetch = this.fetch32;
 			this.signed = this.signed32;
 			this.store = this.store32;
 		} else throw new Error('Invalid cell size');
+		this.stack = this.newStack(this.options.stacksize);
+		this.rstack = this.newStack(this.options.rstacksize);
+		this.cstack = this.newStack(this.options.cstacksize);
 
 		this.options.output.type(`browserforth v${pkg.version} starting...\n`);
 		this.ip = 0;
@@ -116,6 +102,14 @@ export default class Forth {
 	async initialise() {
 		await ForthBuiltins.attach(this);
 		//await ExceptionWords.attach(this);
+	}
+
+	private newStack(size: number) {
+		const addr = this.stackptr;
+		this.stackptr -= size;
+		return this.options.cellsize === 2
+			? new Stack16(this.mem, addr, size)
+			: new Stack32(this.mem, addr, size);
 	}
 
 	get here() {

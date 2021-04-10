@@ -10,6 +10,9 @@ describe('forth standard tests', () => {
 		for (var i = 0; i < lines.length; i++) {
 			const [forth, ...outputs] = lines[i];
 			await f.runString(forth);
+			if (f.options.debug)
+				console.log('expected:', outputs, 'got:', f.stack.contents);
+
 			outputs
 				.reverse()
 				.forEach(o => expect(f.signed(f.stack.pop())).to.equal(o));
@@ -128,6 +131,22 @@ describe('forth standard tests', () => {
 	it('supports holds', async () =>
 		await t(['<# 123 0 #s s" Number: " holds #> s" Number: 123" s=', -1]));
 
+	it('supports if', async () =>
+		await t(
+			[': gi1 if 123 then ;'],
+			[': gi2 if 123 else 234 then ;'],
+			['0 gi1'],
+			['1 gi1', 123],
+			['-1 gi1', 123],
+			['0 gi2', 234],
+			['1 gi2', 123],
+			['-1 gi2', 123],
+
+			[': melse if 1 else 2 else 3 else 4 else 5 then ;'],
+			['0 melse', 2, 4],
+			['1 melse', 1, 3, 5]
+		));
+
 	it('supports invert', async () =>
 		await t(['0 invert', -1], ['-1 invert', 0]));
 
@@ -162,6 +181,24 @@ describe('forth standard tests', () => {
 
 	it('supports variable', async () =>
 		await t(['variable v1'], ['123 v1 !'], ['v1 @', 123]));
+
+	it('supports while', async () =>
+		await t(
+			[': gi3 begin dup 5 < while dup 1+ repeat ;'],
+			['0 gi3', 0, 1, 2, 3, 4, 5],
+			['4 gi3', 4, 5],
+			['5 gi3', 5],
+			['6 gi3', 6],
+
+			[
+				': gi5 begin dup 2 > while dup 5 < while dup 1+ repeat 123 else 345 then ;',
+			],
+			['1 gi5', 1, 345],
+			['2 gi5', 2, 345],
+			['3 gi5', 3, 4, 5, 123],
+			['4 gi5', 4, 5, 123],
+			['5 gi5', 5, 123]
+		));
 
 	it('supports >body', async () =>
 		await t(['create cr0'], ["' cr0 >body here =", -1]));
