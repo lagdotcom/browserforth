@@ -158,7 +158,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('exit', this.exit);
 		f.addBuiltin('fill', this.fill);
 		// f.addBuiltin('find', this.find);
-		// f.addBuiltin('fm/mod', this.fmmod);
+		f.addBuiltin('fm/mod', this.fmmod);
 		f.addBuiltin('here', this.here);
 		f.addBuiltin('hold', this.hold);
 		// f.addBuiltin('i', this.i);
@@ -171,7 +171,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('literal', this.literal, IsImmediate | IsCompileOnly);
 		// f.addBuiltin('loop', this.loop);
 		f.addBuiltin('lshift', this.lshift);
-		// f.addBuiltin('m*', this.mmul);
+		f.addBuiltin('m*', this.mmul);
 		f.addBuiltin('max', this.max);
 		f.addBuiltin('min', this.min);
 		f.addBuiltin('mod', this.mod);
@@ -188,9 +188,9 @@ export default class ForthBuiltins {
 		f.addBuiltin('rot', this.rot);
 		f.addBuiltin('rshift', this.rshift);
 		f.addBuiltin('s"', this.squote, IsImmediate);
-		// f.addBuiltin('s>d', this.stod);
+		f.addBuiltin('s>d', this.stod);
 		f.addBuiltin('sign', this.picsign);
-		// f.addBuiltin('sm/rem', this.smrem);
+		f.addBuiltin('sm/rem', this.smrem);
 		f.addBuiltin('source', this.source);
 		f.addBuiltin('space', this.space);
 		f.addBuiltin('spaces', this.spaces);
@@ -1230,5 +1230,50 @@ export default class ForthBuiltins {
 			f.environment[str].forEach(n => f.stack.push(n));
 			f.stack.push(-1);
 		} else f.stack.push(0);
+	}
+
+	static stod(f: Forth) {
+		const x = f.signed(f.stack.top());
+		f.stack.push(x < 0 ? -1 : 0);
+	}
+
+	// TODO: incorrect (see tests)
+	static fmmod(f: Forth) {
+		const n = f.signed(f.stack.pop());
+		const hi = f.stack.pop();
+		const lo = f.stack.pop();
+
+		if (n == 0) return f.throw(ForthException.divzero, 'division by zero');
+
+		const full = hi * f.cellmax + lo;
+		const div = Math.floor(full / n);
+		const rem = full % n;
+		f.stack.push(rem);
+		f.stack.push(div);
+	}
+
+	// TODO: incorrect (see tests)
+	static smrem(f: Forth) {
+		const n = f.signed(f.stack.pop());
+		const hi = f.stack.pop();
+		const lo = f.stack.pop();
+
+		if (n == 0) return f.throw(ForthException.divzero, 'division by zero');
+
+		const full = hi * f.cellmax + lo;
+		const div = Math.floor(full / n);
+		const rem = full % n;
+		f.stack.push(rem);
+		f.stack.push(div);
+	}
+
+	static mmul(f: Forth) {
+		const n2 = f.signed(f.stack.pop());
+		const n1 = f.signed(f.stack.pop());
+		const d = n1 * n2;
+		const lo = d % f.cellmax;
+		const hi = Math.floor(d / f.cellmax);
+		f.stack.push(lo);
+		f.stack.push(hi);
 	}
 }

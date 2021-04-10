@@ -76,7 +76,7 @@ describe('forth standard tests', () => {
 		await t(
 			['0 2*', 0],
 			['1 2*', 2],
-			['hex 4000 2*', -0x8000]
+			['hex 4000 2* 8000 =', -1]
 			// ['1s 2* 1 xor', '1s'],
 			// ['msb 2*', '0s']
 		));
@@ -146,6 +146,26 @@ describe('forth standard tests', () => {
 			['fbuf 3 30 fill seebuf', 30, 30, 30]
 		));
 
+	it('supports fm/mod', async () =>
+		await t(
+			[' 0 s>d  1 fm/mod', 0, 0],
+			[' 1 s>d  1 fm/mod', 0, 1],
+			[' 2 s>d  1 fm/mod', 0, 2],
+			['-1 s>d  1 fm/mod', 0, -1],
+			['-2 s>d  1 fm/mod', 0, -2],
+			[' 0 s>d -1 fm/mod', 0, 0],
+			[' 1 s>d -1 fm/mod', 0, -1],
+			[' 2 s>d -1 fm/mod', 0, -2],
+			['-1 s>d -1 fm/mod', 0, 1],
+			['-2 s>d -1 fm/mod', 0, 2],
+			[' 2 s>d  2 fm/mod', 0, 1],
+			['-2 s>d -2 fm/mod', 0, 1],
+			[' 7 s>d  3 fm/mod', 1, 2],
+			[' 7 s>d -3 fm/mod', -2, -3],
+			['-7 s>d  3 fm/mod', 2, -3],
+			['-7 s>d -3 fm/mod', -1, 2]
+		));
+
 	it('supports hold', async () =>
 		await t([': gp1 <# 65 hold 66 hold 0 0 #> s" BA" s= ;'], ['gp1', -1]));
 
@@ -176,9 +196,22 @@ describe('forth standard tests', () => {
 			['hex 1 0 lshift', 1],
 			['1 1 lshift', 2],
 			['1 2 lshift', 4],
-			['1 f lshift', -0x8000]
+			['1 f lshift 8000 =', -1]
 			// ['1s 1 lshift 1 xor', '1s'],
 			// ['msb 1 lshift', 0]
+		));
+
+	it('supports m*', async () =>
+		await t(
+			[' 0  0 m* drop', 0],
+			[' 0  1 m* drop', 0],
+			[' 1  0 m* drop', 0],
+			[' 1  2 m* drop', 2],
+			[' 2  1 m* drop', 2],
+			[' 3  3 m* drop', 9],
+			['-3  3 m* drop', -9],
+			[' 3 -3 m* drop', -9],
+			['-3 -3 m* drop', 9]
 		));
 
 	it('supports negate', async () =>
@@ -210,8 +243,39 @@ describe('forth standard tests', () => {
 			['gc5']
 		));
 
+	it('supports s>d', async () =>
+		await t(
+			['0 s>d', 0, 0],
+			['1 s>d', 1, 0],
+			['2 s>d', 2, 0],
+			['-1 s>d', -1, -1],
+			['-2 s>d', -2, -1]
+			// ['min-int s>d', 'min-int', -1],
+			// ['max-int s>d', 'max-int', 0]
+		));
+
 	it('supports sign', async () =>
 		await t(['<# -1 sign 0 sign -1 sign 0 0 #> s" --" s=', -1]));
+
+	it('supports sm/rem', async () =>
+		await t(
+			[' 0 s>d  1 sm/rem', 0, 0],
+			[' 1 s>d  1 sm/rem', 0, 1],
+			[' 2 s>d  1 sm/rem', 0, 2],
+			['-1 s>d  1 sm/rem', 0, -1],
+			['-2 s>d  1 sm/rem', 0, -2],
+			[' 0 s>d -1 sm/rem', 0, 0],
+			[' 1 s>d -1 sm/rem', 0, -1],
+			[' 2 s>d -1 sm/rem', 0, -2],
+			['-1 s>d -1 sm/rem', 0, 1],
+			['-2 s>d -1 sm/rem', 0, 2],
+			[' 2 s>d  2 sm/rem', 0, 1],
+			['-2 s>d -2 sm/rem', 0, 1],
+			[' 7 s>d  3 sm/rem', 1, 2],
+			[' 7 s>d -3 sm/rem', 1, -2],
+			['-7 s>d  3 sm/rem', -1, -2],
+			['-7 s>d -3 sm/rem', -1, 2]
+		));
 
 	it('supports state', async () =>
 		await t(
