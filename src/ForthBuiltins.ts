@@ -37,8 +37,6 @@ function aligned(addr: number, mod: number) {
 	return offset ? addr - offset + mod : addr;
 }
 
-const picbufSize = 16;
-
 export default class ForthBuiltins {
 	static base: GetterSetter<number>;
 	static picbuf: number;
@@ -59,7 +57,7 @@ export default class ForthBuiltins {
 		ForthBuiltins.sourceLen = f.addVariable('source-len', 0);
 		ForthBuiltins.toIn = f.addVariable('>in', 0);
 
-		f.here += picbufSize;
+		f.here += f.options.holdsize;
 		ForthBuiltins.picbuf = f.here;
 		f.addConstant('picbuf', ForthBuiltins.picbuf);
 		ForthBuiltins.toPicbuf = f.addVariable('>picbuf', ForthBuiltins.picbuf);
@@ -112,7 +110,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('2@', this.fetch2);
 		f.addBuiltin('2drop', this.drop2);
 		f.addBuiltin('2dup', this.dup2);
-		// f.addBuiltin('2over', this.over2);
+		f.addBuiltin('2over', this.over2);
 		f.addBuiltin('2swap', this.swap2);
 		f.addBuiltin(':', this.colon);
 		f.addBuiltin(';', this.semicolon, IsImmediate | IsCompileOnly);
@@ -154,7 +152,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('dup', this.dup);
 		f.addBuiltin('else', this.else, IsImmediate | IsCompileOnly);
 		f.addBuiltin('emit', this.emit);
-		// f.addBuiltin('environment?', this.envq);
+		f.addBuiltin('environment?', this.envq);
 		f.addBuiltin('evaluate', this.evaluate);
 		f.addBuiltin('execute', this.execute);
 		f.addBuiltin('exit', this.exit);
@@ -281,12 +279,10 @@ export default class ForthBuiltins {
 		const x = f.stack.top();
 		f.stack.push(x);
 	}
-
 	static qdup(f: Forth) {
 		const x = f.stack.top();
 		if (x) f.stack.push(x);
 	}
-
 	static dup2(f: Forth) {
 		const x2 = f.stack.pop();
 		const x1 = f.stack.top();
@@ -298,7 +294,6 @@ export default class ForthBuiltins {
 	static drop(f: Forth) {
 		f.stack.pop();
 	}
-
 	static drop2(f: Forth) {
 		f.stack.pop();
 		f.stack.pop();
@@ -310,7 +305,6 @@ export default class ForthBuiltins {
 		f.stack.push(x2);
 		f.stack.push(x1);
 	}
-
 	static swap2(f: Forth) {
 		const x4 = f.stack.pop();
 		const x3 = f.stack.pop();
@@ -484,6 +478,18 @@ export default class ForthBuiltins {
 		f.stack.push(x1);
 		f.stack.push(x2);
 		f.stack.push(x1);
+	}
+	static over2(f: Forth) {
+		const x4 = f.stack.pop();
+		const x3 = f.stack.pop();
+		const x2 = f.stack.pop();
+		const x1 = f.stack.pop();
+		f.stack.push(x1);
+		f.stack.push(x2);
+		f.stack.push(x3);
+		f.stack.push(x4);
+		f.stack.push(x1);
+		f.stack.push(x2);
 	}
 
 	static rot(f: Forth) {
@@ -1213,5 +1219,16 @@ export default class ForthBuiltins {
 		const u = f.stack.pop();
 		const x = f.stack.pop();
 		f.stack.push(x >> u);
+	}
+
+	static envq(f: Forth) {
+		const len = f.stack.pop();
+		const addr = f.stack.pop();
+		const str = f.readString(addr, len).toUpperCase();
+
+		if (f.environment[str]) {
+			f.environment[str].forEach(n => f.stack.push(n));
+			f.stack.push(-1);
+		} else f.stack.push(0);
 	}
 }

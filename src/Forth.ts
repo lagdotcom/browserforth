@@ -14,11 +14,14 @@ interface ForthOptions {
 	cstacksize: number;
 	debug: boolean;
 	exceptions: boolean;
+	holdsize: number;
 	input: Input;
 	memory: number;
 	output: Output;
+	padsize: number;
 	rstacksize: number;
 	stacksize: number;
+	wordsize: number;
 }
 
 export type ForthBuiltin = (f: Forth) => Promise<void> | void;
@@ -41,6 +44,7 @@ export default class Forth {
 	private builtins: ForthBuiltin[];
 	cellmax: number;
 	cstack: Stack;
+	environment: Record<string, number[]>;
 	exception: ForthException;
 	fetch: (addr: number) => number;
 	ip: number;
@@ -60,12 +64,15 @@ export default class Forth {
 			debug: typeof options.debug !== 'undefined' ? options.debug : false,
 			exceptions:
 				typeof options.exceptions !== 'undefined' ? options.exceptions : false,
+			holdsize: options.holdsize || 100,
 			input: options.input || new NullInput(),
 			memory: options.memory || 60000,
 			output: options.output || new NullOutput(),
+			padsize: options.padsize || 84,
 			cstacksize: options.cstacksize || 64,
 			rstacksize: options.rstacksize || 64,
 			stacksize: options.stacksize || 64,
+			wordsize: options.wordsize || 33,
 		};
 
 		this.buffer = new ArrayBuffer(this.options.memory);
@@ -74,6 +81,23 @@ export default class Forth {
 		this.exception = 0;
 		this.mem = new DataView(this.buffer);
 		this.stackptr = this.options.memory;
+
+		const max = -1;
+		const half = this.cellmax / 2 - 1;
+		this.environment = {
+			'/COUNTED-STRING': [max],
+			'/HOLD': [this.options.holdsize],
+			'/PAD': [this.options.padsize],
+			'ADDRESS-UNIT-BITS': [8],
+			FLOORED: [-1], // TODO: test
+			'MAX-CHAR': [255], // TODO
+			'MAX-N': [half],
+			'MAX-U': [max],
+			'MAX-D': [max, half],
+			'MAX-UD': [max, max],
+			'RETURN-STACK-CELLS': [this.options.rstacksize],
+			'STACK-CELLS': [this.options.stacksize],
+		};
 
 		if (this.options.cellsize == 2) {
 			this.fetch = this.fetch16;
@@ -108,8 +132,8 @@ export default class Forth {
 		const addr = this.stackptr;
 		this.stackptr -= size;
 		return this.options.cellsize === 2
-			? new Stack16(this.mem, addr, size)
-			: new Stack32(this.mem, addr, size);
+			? new Stack16(this.mem, addr, size * 2)
+			: new Stack32(this.mem, addr, size * 4);
 	}
 
 	get here() {

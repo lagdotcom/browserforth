@@ -91,6 +91,8 @@ describe('forth standard tests', () => {
 			// ['msb 2/ msb and', 'msb'],
 		));
 
+	it('supports 2over', async () => t(['1 2 3 4 2over', 1, 2, 3, 4, 1, 2]));
+
 	it('supports abs', async () =>
 		await t(
 			['0 abs', 0],
