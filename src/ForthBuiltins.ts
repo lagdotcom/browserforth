@@ -107,8 +107,8 @@ export default class ForthBuiltins {
 		f.addBuiltin('1+', this.inc);
 		f.addBuiltin('1-', this.dec);
 		f.addBuiltin('2!', this.store2);
-		// f.addBuiltin('2*', this.mul2);
-		// f.addBuiltin('2/', this.div2);
+		f.addBuiltin('2*', this.mul2);
+		f.addBuiltin('2/', this.div2);
 		f.addBuiltin('2@', this.fetch2);
 		f.addBuiltin('2drop', this.drop2);
 		f.addBuiltin('2dup', this.dup2);
@@ -172,7 +172,7 @@ export default class ForthBuiltins {
 		// f.addBuiltin('leave', this.leave);
 		f.addBuiltin('literal', this.literal, IsImmediate | IsCompileOnly);
 		// f.addBuiltin('loop', this.loop);
-		// f.addBuiltin('lshift', this.lshift);
+		f.addBuiltin('lshift', this.lshift);
 		// f.addBuiltin('m*', this.mmul);
 		f.addBuiltin('max', this.max);
 		f.addBuiltin('min', this.min);
@@ -188,7 +188,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('recurse', this.recurse, IsImmediate | IsCompileOnly);
 		f.addBuiltin('repeat', this.repeat, IsImmediate | IsCompileOnly);
 		f.addBuiltin('rot', this.rot);
-		// f.addBuiltin('rshift', this.rshift);
+		f.addBuiltin('rshift', this.rshift);
 		f.addBuiltin('s"', this.squote, IsImmediate);
 		// f.addBuiltin('s>d', this.stod);
 		f.addBuiltin('sign', this.picsign);
@@ -1193,5 +1193,25 @@ export default class ForthBuiltins {
 		const orig = f.cstack.pop();
 		f.debug('resolve:', orig, f.here);
 		f.store(orig, f.here);
+	}
+
+	static mul2(f: Forth) {
+		const x = f.stack.pop();
+		f.stack.push(x << 1);
+	}
+	static lshift(f: Forth) {
+		const u = f.stack.pop();
+		const x = f.stack.pop();
+		f.stack.push(x << u);
+	}
+
+	static div2(f: Forth) {
+		const x = f.stack.pop();
+		f.stack.push(x >> 1);
+	}
+	static rshift(f: Forth) {
+		const u = f.stack.pop();
+		const x = f.stack.pop();
+		f.stack.push(x >> u);
 	}
 }

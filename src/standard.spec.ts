@@ -72,6 +72,25 @@ describe('forth standard tests', () => {
 			// ['1s 1st ! 1st @ 1s =', -1]
 		));
 
+	it('supports 2*', async () =>
+		await t(
+			['0 2*', 0],
+			['1 2*', 2],
+			['hex 4000 2*', -0x8000]
+			// ['1s 2* 1 xor', '1s'],
+			// ['msb 2*', '0s']
+		));
+
+	it('supports 2/', async () =>
+		await t(
+			['0 2/', 0],
+			['1 2/', 0],
+			['hex 4000 2/', 0x2000]
+			// ['1s 2/', '1s'],
+			// ['1s 1 xor 2/', '1s'],
+			// ['msb 2/ msb and', 'msb'],
+		));
+
 	it('supports abs', async () =>
 		await t(
 			['0 abs', 0],
@@ -150,6 +169,16 @@ describe('forth standard tests', () => {
 	it('supports invert', async () =>
 		await t(['0 invert', -1], ['-1 invert', 0]));
 
+	it('supports lshift', async () =>
+		t(
+			['hex 1 0 lshift', 1],
+			['1 1 lshift', 2],
+			['1 2 lshift', 4],
+			['1 f lshift', -0x8000]
+			// ['1s 1 lshift 1 xor', '1s'],
+			// ['msb 1 lshift', 0]
+		));
+
 	it('supports negate', async () =>
 		await t(
 			['0 negate', 0],
@@ -157,6 +186,17 @@ describe('forth standard tests', () => {
 			['-1 negate', 1],
 			['2 negate', -2],
 			['-2 negate', 2]
+		));
+
+	it('supports rshift', async () =>
+		t(
+			['hex 1 0 rshift', 1],
+			['1 1 rshift', 0],
+			['2 1 rshift', 1],
+			['4 2 rshift', 1],
+			['8000 f rshift', 1]
+			// ['msb 1 rshift msb and', 0],
+			// ['msb 1 rshift 2*', 'msb']
 		));
 
 	it('supports s"', async () =>
