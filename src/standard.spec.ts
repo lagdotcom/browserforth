@@ -128,6 +128,18 @@ describe('forth standard tests', () => {
 	it('supports holds', async () =>
 		await t(['<# 123 0 #s s" Number: " holds #> s" Number: 123" s=', -1]));
 
+	it('supports invert', async () =>
+		await t(['0 invert', -1], ['-1 invert', 0]));
+
+	it('supports negate', async () =>
+		await t(
+			['0 negate', 0],
+			['1 negate', -1],
+			['-1 negate', 1],
+			['2 negate', -2],
+			['-2 negate', 2]
+		));
+
 	it('supports s"', async () =>
 		await t(
 			[': gc4 s" XY" ;'],

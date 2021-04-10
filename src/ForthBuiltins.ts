@@ -163,7 +163,7 @@ export default class ForthBuiltins {
 		// f.addBuiltin('i', this.i);
 		// f.addBuiltin('if', this.if);
 		f.addBuiltin('immediate', this.immediate);
-		// f.addBuiltin('invert', this.invert);
+		f.addBuiltin('invert', this.invert);
 		// f.addBuiltin('j', this.j);
 		f.addBuiltin('key', this.key);
 		// f.addBuiltin('leave', this.leave);
@@ -171,18 +171,18 @@ export default class ForthBuiltins {
 		// f.addBuiltin('loop', this.loop);
 		// f.addBuiltin('lshift', this.lshift);
 		// f.addBuiltin('m*', this.mmul);
-		// f.addBuiltin('max', this.max);
-		// f.addBuiltin('min', this.min);
-		// f.addBuiltin('mod', this.mod);
+		f.addBuiltin('max', this.max);
+		f.addBuiltin('min', this.min);
+		f.addBuiltin('mod', this.mod);
 		// f.addBuiltin('move', this.move);
-		// f.addBuiltin('negate', this.negate);
+		f.addBuiltin('negate', this.negate);
 		f.addBuiltin('or', this.or);
 		f.addBuiltin('over', this.over);
 		f.addBuiltin('postpone', this.postpone, IsImmediate | IsCompileOnly);
 		// f.addBuiltin('quit', this.quit);
 		f.addBuiltin('r>', this.fromr);
 		f.addBuiltin('r@', this.rpeek);
-		// f.addBuiltin('recurse', this.recurse);
+		f.addBuiltin('recurse', this.recurse, IsImmediate | IsCompileOnly);
 		// f.addBuiltin('repeat', this.repeat);
 		f.addBuiltin('rot', this.rot);
 		// f.addBuiltin('rshift', this.rshift);
@@ -408,6 +408,15 @@ export default class ForthBuiltins {
 		if (n2 == 0) return f.throw(ForthException.divzero, 'division by zero');
 
 		f.stack.push(n1 / n2);
+	}
+
+	static mod(f: Forth) {
+		const n2 = f.stack.pop();
+		const n1 = f.stack.pop();
+
+		if (n2 == 0) return f.throw(ForthException.divzero, 'division by zero');
+
+		f.stack.push(n1 % n2);
 	}
 
 	static muldiv(f: Forth) {
@@ -1068,5 +1077,31 @@ export default class ForthBuiltins {
 		const len = f.signed(f.stack.pop());
 		const addr = f.stack.pop();
 		for (var i = 0; i < len; i++) f.store8(addr + i, char);
+	}
+
+	static max(f: Forth) {
+		const n2 = f.stack.pop();
+		const n1 = f.stack.pop();
+		f.stack.push(Math.max(n1, n2));
+	}
+
+	static min(f: Forth) {
+		const n2 = f.stack.pop();
+		const n1 = f.stack.pop();
+		f.stack.push(Math.min(n1, n2));
+	}
+
+	static negate(f: Forth) {
+		f.stack.push(-f.signed(f.stack.pop()));
+	}
+
+	static invert(f: Forth) {
+		f.stack.push(~f.stack.pop());
+	}
+
+	static recurse(f: Forth) {
+		const xt = f.link + f.options.cellsize;
+		f.debug('compile:', f.wordinfo(xt).name);
+		f.write(xt);
 	}
 }
