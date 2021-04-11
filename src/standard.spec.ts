@@ -56,6 +56,14 @@ describe('forth standard tests', () => {
 			// ['mid-uint+1 1 rshift mid-uint+1 or 2 *', 'mid-uint+1']
 		));
 
+	it('supports +!', async () =>
+		await t(
+			['here 0 , constant 1st'],
+			['1 1st +!'],
+			['1st @', 1],
+			['-1 1st +! 1st @', 0]
+		));
+
 	it('supports , 2@ 2! cell+', async () =>
 		await t(
 			['here 1 , here 2 , constant 2nd constant 1st'],
@@ -138,13 +146,20 @@ describe('forth standard tests', () => {
 			['w1 here 2 + =', -1]
 		));
 
-	it('supports fill', async () =>
+	it('supports fill move', async () =>
 		await t(
 			['3 buffer: fbuf'],
 			[': seebuf fbuf c@ fbuf 1+ c@ fbuf 1+ 1+ c@ ;'],
 			['fbuf 0 20 fill seebuf', 0, 0, 0],
 			['fbuf 1 20 fill seebuf', 20, 0, 0],
-			['fbuf 3 30 fill seebuf', 30, 30, 30]
+			['fbuf 3 30 fill seebuf', 30, 30, 30],
+			['create sbuf 12 c, 34 c, 56 c,'],
+			['fbuf fbuf 3 chars move seebuf', 30, 30, 30],
+			['sbuf fbuf 0 chars move seebuf', 30, 30, 30],
+			['sbuf fbuf 1 chars move seebuf', 12, 30, 30],
+			['sbuf fbuf 3 chars move seebuf', 12, 34, 56],
+			['fbuf fbuf char+ 2 chars move seebuf', 12, 12, 34],
+			['fbuf char+ fbuf 2 chars move seebuf', 12, 34, 34]
 		));
 
 	it('supports fm/mod', async () =>

@@ -95,7 +95,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('*/', this.muldiv);
 		f.addBuiltin('*/mod', this.muldivmod);
 		f.addBuiltin('+', this.add);
-		// f.addBuiltin('+!', this.addstore);
+		f.addBuiltin('+!', this.addstore);
 		// f.addBuiltin('+loop', this.addloop);
 		f.addBuiltin(',', this.comma);
 		f.addBuiltin('-', this.sub);
@@ -178,7 +178,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('max', this.max);
 		f.addBuiltin('min', this.min);
 		f.addBuiltin('mod', this.mod);
-		// f.addBuiltin('move', this.move);
+		f.addBuiltin('move', this.move);
 		f.addBuiltin('negate', this.negate);
 		f.addBuiltin('or', this.or);
 		f.addBuiltin('over', this.over);
@@ -370,6 +370,11 @@ export default class ForthBuiltins {
 		const x1 = f.stack.pop();
 		f.store(aaddr, x2);
 		f.store(aaddr + f.options.cellsize, x1);
+	}
+	static addstore(f: Forth) {
+		const aaddr = f.stack.pop();
+		const x = f.stack.pop();
+		f.store(aaddr, f.fetch(aaddr) + x);
 	}
 
 	static emit(f: Forth) {
@@ -1312,5 +1317,17 @@ export default class ForthBuiltins {
 		const hi = Math.floor(d / f.cellmax);
 		f.stack.push(lo);
 		f.stack.push(hi);
+	}
+
+	static move(f: Forth) {
+		const len = f.signed(f.stack.pop());
+		const dst = f.stack.pop();
+		const src = f.stack.pop();
+
+		if (len > 0) {
+			const data: number[] = [];
+			for (var i = 0; i < len; i++) data.push(f.fetch8(src + i));
+			for (var i = 0; i < len; i++) f.store8(dst + i, data[i]);
+		}
 	}
 }
