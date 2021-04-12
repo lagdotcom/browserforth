@@ -129,7 +129,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('abort', this.abort);
 		f.addBuiltin('abort"', this.aborts);
 		f.addBuiltin('abs', this.abs);
-		// f.addBuiltin('accept', this.accept);
+		f.addBuiltin('accept', this.accept);
 		f.addBuiltin('align', this.align);
 		f.addBuiltin('aligned', this.aligned);
 		f.addBuiltin('allot', this.allot);
@@ -1329,5 +1329,31 @@ export default class ForthBuiltins {
 			for (var i = 0; i < len; i++) data.push(f.fetch8(src + i));
 			for (var i = 0; i < len; i++) f.store8(dst + i, data[i]);
 		}
+	}
+
+	static accept(f: Forth) {
+		const maxlen = f.signed(f.stack.pop());
+		const addr = f.stack.pop();
+
+		if (maxlen <= 0) f.stack.push(0);
+		else
+			return new Promise<void>(async (resolve, reject) => {
+				var i = 0;
+				while (true) {
+					const e = await f.options.input.key();
+					if (e.code === 'Enter') {
+						f.stack.push(i);
+						return resolve();
+					}
+
+					// TODO: deprecated
+					f.store8(addr + i, e.charCode);
+					i++;
+					if (i >= maxlen) {
+						f.stack.push(i);
+						return resolve();
+					}
+				}
+			});
 	}
 }
