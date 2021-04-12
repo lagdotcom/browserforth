@@ -7,5 +7,5 @@ export default interface Stack {
 	ptop: number;
 	pushf(f: boolean): void;
 	pop(): number;
-	top(): number;
+	top(offset?: number): number;
 }

@@ -127,6 +127,22 @@ describe('forth standard tests', () => {
 			['y123', 123]
 		));
 
+	it('supports do i j loop +loop', async () =>
+		await t(
+			[': gd1 do i                 loop ;'],
+			[' 4  1 gd1', 1, 2, 3],
+			[' 2 -1 gd1', -1, 0, 1],
+			[': gd2 do i             -1 +loop ;'],
+			[' 1  4 gd2', 4, 3, 2, 1],
+			['-1  2 gd2', 2, 1, 0, -1],
+			[': gd3 do 1 0 do j loop     loop ;'],
+			[' 4  1 gd3', 1, 2, 3],
+			[' 2 -1 gd3', -1, 0, 1],
+			[': gd4 do 1 0 do j loop -1 +loop ;'],
+			[' 1  4 gd4', 4, 3, 2, 1],
+			['-1  2 gd4', 2, 1, 0, -1]
+		));
+
 	it('supports does>', async () =>
 		await t(
 			[': does1 does> @ 1 + ;'],
@@ -206,6 +222,14 @@ describe('forth standard tests', () => {
 
 	it('supports invert', async () =>
 		await t(['0 invert', -1], ['-1 invert', 0]));
+
+	it('supports leave', async () =>
+		await t(
+			[': gd5 123 swap 0 do i 4 > if drop 234 leave then loop ;'],
+			['1 gd5', 123],
+			['5 gd5', 123],
+			['6 gd5', 234]
+		));
 
 	it('supports lshift', async () =>
 		t(
@@ -317,6 +341,16 @@ describe('forth standard tests', () => {
 			['1 2 um*', 2, 0],
 			['2 1 um*', 2, 0],
 			['3 3 um*', 9, 0]
+		));
+
+	it('supports unloop', async () =>
+		await t(
+			[
+				': gd6 0 swap 0 do i 1+ 0 do i j + 3 = if i unloop i unloop exit then 1+ loop loop ;',
+			],
+			['1 gd6', 1],
+			['2 gd6', 3],
+			['3 gd6', 4, 1, 2]
 		));
 
 	it('supports variable', async () =>

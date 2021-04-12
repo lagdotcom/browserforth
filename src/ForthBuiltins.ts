@@ -39,6 +39,15 @@ function aligned(addr: number, mod: number) {
 	return offset ? addr - offset + mod : addr;
 }
 
+// TODO: is this always correct?
+function loopPassed(limit: number, index: number, step: number, orig: number) {
+	if (step > 0) {
+		return index >= limit && orig < limit;
+	} else {
+		return index < limit && orig >= limit;
+	}
+}
+
 export default class ForthBuiltins {
 	// TODO: remove the need for these; they prevent saving as binary
 	static base: GetterSetter<number>;
@@ -74,6 +83,8 @@ export default class ForthBuiltins {
 		f.addBuiltin('sp!', this.spstore);
 		f.addBuiltin('rp@', this.rptop);
 		f.addBuiltin('rp!', this.rpstore);
+		f.addBuiltin('rdrop', this.rdrop);
+		f.addBuiltin('2rdrop', this.rdrop2);
 
 		// --- nonstandard
 		f.addBuiltin('compile-only', this.compileonly);
@@ -83,6 +94,9 @@ export default class ForthBuiltins {
 		f.addBuiltin('(sliteral)', this.sliteralRt);
 		f.addBuiltin('(branch)', this.branch);
 		f.addBuiltin('(branch0)', this.branch0);
+		f.addBuiltin('(do)', this.doRt);
+		f.addBuiltin('(loop)', this.loopRt);
+		f.addBuiltin('(+loop)', this.addloopRt);
 
 		// --- core
 		f.addBuiltin('!', this.store);
@@ -96,7 +110,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('*/mod', this.muldivmod);
 		f.addBuiltin('+', this.add);
 		f.addBuiltin('+!', this.addstore);
-		// f.addBuiltin('+loop', this.addloop);
+		f.addBuiltin('+loop', this.addloop, IsImmediate | IsCompileOnly);
 		f.addBuiltin(',', this.comma);
 		f.addBuiltin('-', this.sub);
 		f.addBuiltin('.', this.dot);
@@ -149,7 +163,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('create', this.create);
 		f.addBuiltin('decimal', this.decimal);
 		f.addBuiltin('depth', this.depth);
-		// f.addBuiltin('do', this.do);
+		f.addBuiltin('do', this.do, IsImmediate | IsCompileOnly);
 		f.addBuiltin('does>', this.does);
 		f.addBuiltin('drop', this.drop);
 		f.addBuiltin('dup', this.dup);
@@ -164,15 +178,15 @@ export default class ForthBuiltins {
 		f.addBuiltin('fm/mod', this.fmmod);
 		f.addBuiltin('here', this.here);
 		f.addBuiltin('hold', this.hold);
-		// f.addBuiltin('i', this.i);
+		f.addBuiltin('i', this.rpeek);
 		f.addBuiltin('if', this.if, IsImmediate | IsCompileOnly);
 		f.addBuiltin('immediate', this.immediate);
 		f.addBuiltin('invert', this.invert);
-		// f.addBuiltin('j', this.j);
+		f.addBuiltin('j', this.rpeek2);
 		f.addBuiltin('key', this.key);
-		// f.addBuiltin('leave', this.leave);
+		f.addBuiltin('leave', this.leave, IsImmediate | IsCompileOnly);
 		f.addBuiltin('literal', this.literal, IsImmediate | IsCompileOnly);
-		// f.addBuiltin('loop', this.loop);
+		f.addBuiltin('loop', this.loop, IsImmediate | IsCompileOnly);
 		f.addBuiltin('lshift', this.lshift);
 		f.addBuiltin('m*', this.mmul);
 		f.addBuiltin('max', this.max);
@@ -204,7 +218,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('u<', this.ult);
 		f.addBuiltin('um*', this.ummul);
 		f.addBuiltin('um/mod', this.ummod);
-		// f.addBuiltin('unloop', this.unloop);
+		f.addBuiltin('unloop', this.rdrop2);
 		f.addBuiltin('until', this.until, IsImmediate | IsCompileOnly);
 		f.addBuiltin('while', this.while, IsImmediate | IsCompileOnly);
 		// f.addBuiltin('word', this.word);
@@ -286,9 +300,8 @@ export default class ForthBuiltins {
 		if (x) f.stack.push(x);
 	}
 	static dup2(f: Forth) {
-		const x2 = f.stack.pop();
+		const x2 = f.stack.top(1);
 		const x1 = f.stack.top();
-		f.stack.push(x2);
 		f.stack.push(x1);
 		f.stack.push(x2);
 	}
@@ -480,21 +493,12 @@ export default class ForthBuiltins {
 	}
 
 	static over(f: Forth) {
-		const x2 = f.stack.pop();
-		const x1 = f.stack.pop();
-		f.stack.push(x1);
-		f.stack.push(x2);
-		f.stack.push(x1);
+		const x = f.stack.top(1);
+		f.stack.push(x);
 	}
 	static over2(f: Forth) {
-		const x4 = f.stack.pop();
-		const x3 = f.stack.pop();
-		const x2 = f.stack.pop();
-		const x1 = f.stack.pop();
-		f.stack.push(x1);
-		f.stack.push(x2);
-		f.stack.push(x3);
-		f.stack.push(x4);
+		const x2 = f.stack.top(2);
+		const x1 = f.stack.top(3);
 		f.stack.push(x1);
 		f.stack.push(x2);
 	}
@@ -580,6 +584,10 @@ export default class ForthBuiltins {
 
 	static rpeek(f: Forth) {
 		const x = f.rstack.top();
+		f.stack.push(x);
+	}
+	static rpeek2(f: Forth) {
+		const x = f.rstack.top(2);
 		f.stack.push(x);
 	}
 
@@ -1355,5 +1363,120 @@ export default class ForthBuiltins {
 					}
 				}
 			});
+	}
+
+	static do(f: Forth) {
+		const xt = f.words['(do)'];
+		f.debug('compile: (do)');
+		f.write(xt);
+
+		f.cstack.push(f.here);
+		f.debug('dest:', f.here);
+
+		// number of LEAVEs
+		// TODO: should this really use the data stack?
+		f.stack.push(0);
+	}
+
+	static doRt(f: Forth) {
+		const index = f.stack.pop();
+		const limit = f.stack.pop();
+		f.rstack.push(limit);
+		f.rstack.push(index);
+	}
+
+	static loop(f: Forth) {
+		const xt = f.words['(loop)'];
+		f.debug('compile: (loop)');
+		f.write(xt);
+
+		const dest = f.cstack.pop();
+		const xt2 = f.words['(branch0)'];
+		f.debug('compile: (branch0)', dest);
+		f.write(xt2);
+		f.write(dest);
+
+		ForthBuiltins.resolveLeave(f);
+	}
+
+	static leave(f: Forth) {
+		const xt = f.words['2rdrop'];
+		f.debug('compile: 2rdrop');
+		f.write(xt);
+
+		const xt2 = f.words['(branch)'];
+		f.debug('compile: (branch)', '???');
+		f.write(xt2);
+
+		// TODO: should this really use the data stack?
+		const count = f.stack.pop();
+		f.stack.push(f.here);
+		f.stack.push(count + 1);
+
+		f.write(-1);
+	}
+
+	// TODO: should this really use the data stack?
+	static resolveLeave(f: Forth) {
+		const count = f.stack.pop();
+		for (var i = 0; i < count; i++) {
+			const orig = f.stack.pop();
+			f.debug('resolve:', orig, f.here);
+			f.store(orig, f.here);
+		}
+	}
+
+	// TODO: this code kinda sucks
+	static loopRt(f: Forth) {
+		const orig = f.rstack.pop();
+		const limit = f.rstack.top();
+		f.rstack.push(orig + 1);
+		const index = f.rstack.top();
+		if (f.signed(index) === f.signed(limit)) {
+			f.rstack.pop();
+			f.rstack.pop();
+			f.stack.pushf(true);
+		} else {
+			f.stack.pushf(false);
+		}
+	}
+
+	// TODO: resolve LEAVEs
+	static addloop(f: Forth) {
+		const xt = f.words['(+loop)'];
+		f.debug('compile: (+loop)');
+		f.write(xt);
+
+		const dest = f.cstack.pop();
+		const xt2 = f.words['(branch0)'];
+		f.debug('compile: (branch0)', dest);
+		f.write(xt2);
+		f.write(dest);
+
+		ForthBuiltins.resolveLeave(f);
+	}
+
+	// TODO: this code kinda sucks
+	static addloopRt(f: Forth) {
+		const step = f.stack.pop();
+		const orig = f.rstack.pop();
+		const limit = f.rstack.top();
+		f.rstack.push(orig + step);
+		const index = f.rstack.top();
+		if (loopPassed(limit, index, f.signed(step), orig)) {
+			f.rstack.pop();
+			f.rstack.pop();
+			f.stack.pushf(true);
+		} else {
+			f.stack.pushf(false);
+		}
+	}
+
+	static rdrop(f: Forth) {
+		f.rstack.pop();
+	}
+	static rdrop2(f: Forth) {
+		f.rstack.pop();
+		f.rstack.pop();
 	}
 }

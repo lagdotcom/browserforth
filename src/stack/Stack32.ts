@@ -1,5 +1,6 @@
 import Stack from './Stack';
 
+const cell = 4;
 export default class Stack32 implements Stack {
 	mem: DataView;
 	p: number;
@@ -20,7 +21,7 @@ export default class Stack32 implements Stack {
 		var addr = this.p;
 		while (addr < this.ptop) {
 			stack.unshift(this.mem.getUint32(addr));
-			addr += 4;
+			addr += cell;
 		}
 
 		return stack;
@@ -31,7 +32,7 @@ export default class Stack32 implements Stack {
 	}
 
 	push(x: number) {
-		this.p -= 4;
+		this.p -= cell;
 		return this.mem.setUint32(this.p, x);
 	}
 
@@ -43,13 +44,13 @@ export default class Stack32 implements Stack {
 		if (this.p >= this.ptop) throw new Error('Stack underflow');
 
 		const res = this.mem.getUint32(this.p);
-		this.p += 4;
+		this.p += cell;
 		return res;
 	}
 
-	top() {
+	top(offset: number = 0) {
 		if (this.p >= this.ptop) throw new Error('Stack underflow');
 
-		return this.mem.getUint32(this.p);
+		return this.mem.getUint32(this.p + offset * cell);
 	}
 }
