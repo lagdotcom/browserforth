@@ -92,6 +92,7 @@ export default class ForthBuiltins {
 	static state: GetterSetter<number>;
 	static toPicbuf: GetterSetter<number>;
 	static toIn: GetterSetter<number>;
+	static wordbuf: number;
 
 	static async attach(f: Forth) {
 		const { IsImmediate, IsCompileOnly } = HeaderFlags;
@@ -107,6 +108,9 @@ export default class ForthBuiltins {
 		ForthBuiltins.picbuf = f.here;
 		f.addConstant('picbuf', ForthBuiltins.picbuf);
 		ForthBuiltins.toPicbuf = f.addVariable('>picbuf', ForthBuiltins.picbuf);
+
+		ForthBuiltins.wordbuf = f.here;
+		f.here += f.options.wordsize;
 
 		f.addConstant('false', 0);
 		f.addConstant('true', -1);
@@ -208,7 +212,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('execute', this.execute);
 		f.addBuiltin('exit', this.exit);
 		f.addBuiltin('fill', this.fill);
-		// f.addBuiltin('find', this.find);
+		f.addBuiltin('find', this.find);
 		f.addBuiltin('fm/mod', this.fmmod);
 		f.addBuiltin('here', this.here);
 		f.addBuiltin('hold', this.hold);
@@ -255,7 +259,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('unloop', this.rdrop2);
 		f.addBuiltin('until', this.until, IsImmediate | IsCompileOnly);
 		f.addBuiltin('while', this.while, IsImmediate | IsCompileOnly);
-		// f.addBuiltin('word', this.word);
+		f.addBuiltin('word', this.word);
 		f.addBuiltin('xor', this.xor);
 		f.addBuiltin('[', this.interpretMode, IsImmediate | IsCompileOnly);
 		f.addBuiltin(']', this.compileMode);
@@ -1482,5 +1486,29 @@ export default class ForthBuiltins {
 	}
 	static rdrop2(f: Forth) {
 		f.rstack.popd();
+	}
+
+	static find(f: Forth) {
+		const caddr = f.stack.pop();
+		const str = f.readString(caddr + f.options.cellsize, f.fetch(caddr));
+		const xt = f.words[str.toLowerCase()];
+		if (xt) {
+			const winfo = f.wordinfo(xt);
+			f.stack.push(xt);
+			f.stack.push(winfo.flags & HeaderFlags.IsImmediate ? 1 : -1);
+		} else {
+			f.stack.push(caddr);
+			f.stack.push(0);
+		}
+	}
+
+	static word(f: Forth) {
+		const x = f.stack.pop();
+		const ch = String.fromCharCode(x);
+		const result = scan(f, ch, '\n');
+		const caddr = ForthBuiltins.wordbuf;
+		if (result) f.writeStringAt(caddr, result.slice(0, f.options.wordsize));
+		else f.writeStringAt(caddr, '');
+		f.stack.push(caddr);
 	}
 }

@@ -178,6 +178,15 @@ describe('forth standard tests', () => {
 			['fbuf char+ fbuf 2 chars move seebuf', 12, 34, 34]
 		));
 
+	it('supports find', async () =>
+		await t(
+			[': gt1 ; : gt2 ; immediate'],
+			['here 3 , char g c, char t c, char 1 c, constant gt1string'],
+			['here 3 , char g c, char t c, char 2 c, constant gt2string'],
+			["gt1string find swap ' gt1 =", -1, -1],
+			["gt2string find swap ' gt2 =", 1, -1]
+		));
+
 	it('supports fm/mod', async () =>
 		await t(
 			[' 0 s>d  1 fm/mod', 0, 0],
@@ -372,6 +381,14 @@ describe('forth standard tests', () => {
 			['3 gi5', 3, 4, 5, 123],
 			['4 gi5', 4, 5, 123],
 			['5 gi5', 5, 123]
+		));
+
+	it('supports word', async () =>
+		await t(
+			[': gs3 word count swap c@ ;'],
+			['bl gs3 hello', 5, 'h'.charCodeAt(0)],
+			['char " gs3 goodbye"', 7, 'g'.charCodeAt(0)],
+			['bl gs3 \ndrop', 0]
 		));
 
 	it('supports >body', async () =>
