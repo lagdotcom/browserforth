@@ -393,4 +393,25 @@ describe('forth standard tests', () => {
 
 	it('supports >body', async () =>
 		await t(['create cr0'], ["' cr0 >body here =", -1]));
+
+	it('supports >number', async () =>
+		await t(
+			['create gn-buf 0 c,'],
+			[': gn-string gn-buf 1 ;'],
+			[': ok? gn-buf char+ 0 d= ;'],
+			[": gn' [char] ' word cell+ c@ gn-buf c! gn-string ;"],
+			["0 0 gn' 0'    >number       ok?", 0, 0, -1],
+			["0 0 gn' 1'    >number       ok?", 1, 0, -1],
+			["1 0 gn' 1'    >number       ok?", 11, 0, -1],
+			["0 0 gn' -'    >number       ok?", 0, 0, 0],
+			["0 0 gn' +'    >number       ok?", 0, 0, 0],
+			["0 0 gn' .'    >number       ok?", 0, 0, 0],
+			[': >number-based base @ >r base ! >number r> base ! ;'],
+			["0 0 gn' 2' 16 >number-based ok?", 2, 0, -1],
+			["0 0 gn' 2'  2 >number-based ok?", 0, 0, 0],
+			["0 0 gn' F' 16 >number-based ok?", 15, 0, -1],
+			["0 0 gn' G' 16 >number-based ok?", 0, 0, 0],
+			["0 0 gn' G' 36 >number-based ok?", 16, 0, -1],
+			["0 0 gn' z' 36 >number-based ok?", 35, 0, -1]
+		));
 });

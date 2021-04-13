@@ -174,7 +174,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('=', this.eq);
 		f.addBuiltin('>', this.gt);
 		f.addBuiltin('>body', this.tobody);
-		// f.addBuiltin('>number', this.tonumber);
+		f.addBuiltin('>number', this.toNumber);
 		f.addBuiltin('>r', this.tor);
 		f.addBuiltin('?dup', this.qdup);
 		f.addBuiltin('@', this.fetch);
@@ -319,6 +319,9 @@ export default class ForthBuiltins {
 		// f.addBuiltin('value', this.value);
 		f.addBuiltin('within', this.within);
 		// f.addBuiltin('\\', this.backslash);
+
+		// --- double-number (incomplete list)
+		f.addBuiltin('d=', this.deq);
 
 		// --- facility (incomplete list)
 		f.addBuiltin('at-xy', this.atxy);
@@ -573,6 +576,11 @@ export default class ForthBuiltins {
 		const x2 = f.stack.pop();
 		const x1 = f.stack.pop();
 		f.stack.pushf(x1 == x2);
+	}
+	static deq(f: Forth) {
+		const d2 = f.stack.popd();
+		const d1 = f.stack.popd();
+		f.stack.pushf(d1 == d2);
 	}
 
 	static ne(f: Forth) {
@@ -1510,5 +1518,28 @@ export default class ForthBuiltins {
 		if (result) f.writeStringAt(caddr, result.slice(0, f.options.wordsize));
 		else f.writeStringAt(caddr, '');
 		f.stack.push(caddr);
+	}
+
+	// TODO: can I reuse asNumber? this is much stricter
+	static toNumber(f: Forth) {
+		const { base } = ForthBuiltins;
+		const len = f.stack.pop();
+		const addr = f.stack.pop();
+		var value = f.stack.popd();
+		const src = f.readString(addr, len).toLowerCase();
+
+		var i = 0;
+		const available = numberChars.slice(0, base());
+		for (; i < src.length; i++) {
+			const ch = src[i];
+			const j = available.indexOf(ch);
+
+			if (j >= 0) value = value * base() + j;
+			else break;
+		}
+
+		f.stack.pushd(value);
+		f.stack.push(addr + i);
+		f.stack.push(src.length - i);
 	}
 }
