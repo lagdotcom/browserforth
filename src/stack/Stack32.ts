@@ -36,6 +36,11 @@ export default class Stack32 implements Stack {
 		return this.mem.setUint32(this.p, x);
 	}
 
+	pushd(x: number) {
+		this.p -= cell * 2;
+		return this.mem.setBigUint64(this.p, BigInt(x));
+	}
+
 	pushf(f: boolean) {
 		this.push(f ? -1 : 0);
 	}
@@ -46,6 +51,14 @@ export default class Stack32 implements Stack {
 		const res = this.mem.getUint32(this.p);
 		this.p += cell;
 		return res;
+	}
+
+	popd() {
+		if (this.p >= this.ptop - cell) throw new Error('Stack underflow');
+
+		const res = this.mem.getBigUint64(this.p);
+		this.p += cell * 2;
+		return Number(res);
 	}
 
 	top(offset: number = 0) {

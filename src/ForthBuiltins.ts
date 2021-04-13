@@ -22,16 +22,11 @@ function scan(f: Forth, ...until: string[]) {
 	if (current) return current;
 }
 
-// TODO: double-width numbers
-function doPictureDigit(hi: number, lo: number, base: number, max: number) {
-	var full = lo + hi * max;
+function doPictureDigit(full: number, base: number) {
 	const digit = (full % base).toString(base);
+	const value = Math.floor(full / base);
 
-	full = Math.floor(full / base);
-	var flo = full % max;
-	var fhi = Math.floor(full / max);
-
-	return { flo, fhi, char: digit.charCodeAt(0) };
+	return { value, char: digit.charCodeAt(0) };
 }
 
 function aligned(addr: number, mod: number) {
@@ -46,6 +41,45 @@ function loopPassed(limit: number, index: number, step: number, orig: number) {
 	} else {
 		return index < limit && orig >= limit;
 	}
+}
+
+const numberChars = '0123456789abcdefghijklmnopqrstuvwxyz';
+function asNumber(src: string, base: number): [value: number, left: number] {
+	if (src[0] === "'" && src[2] === "'") return [src.charCodeAt(1), 0];
+
+	var i = 0;
+	if (src[i] === '#') {
+		base = 10;
+		i++;
+	} else if (src[i] === '$') {
+		base = 16;
+		i++;
+	} else if (src[i] === '%') {
+		base = 2;
+		i++;
+	}
+
+	var negative = false;
+	if (src[i] === '-') {
+		negative = true;
+		i++;
+	}
+
+	var value = 0;
+	const avail = numberChars.slice(0, base);
+	const num = src.toLowerCase();
+	for (; i < src.length; i++) {
+		const ch = num[i];
+		const j = avail.indexOf(ch);
+		if (j >= 0) value = value * base + j;
+		else {
+			if (negative) value = -value;
+			return [value, src.length - i];
+		}
+	}
+
+	if (negative) value = -value;
+	return [value, 0];
 }
 
 export default class ForthBuiltins {
@@ -363,8 +397,7 @@ export default class ForthBuiltins {
 	}
 	static fetch2(f: Forth) {
 		const aaddr = f.stack.pop();
-		f.stack.push(f.fetch(aaddr + f.options.cellsize));
-		f.stack.push(f.fetch(aaddr));
+		f.stack.pushd(f.fetchd(aaddr));
 	}
 
 	static store(f: Forth) {
@@ -379,10 +412,8 @@ export default class ForthBuiltins {
 	}
 	static store2(f: Forth) {
 		const aaddr = f.stack.pop();
-		const x2 = f.stack.pop();
-		const x1 = f.stack.pop();
-		f.store(aaddr, x2);
-		f.store(aaddr + f.options.cellsize, x1);
+		const d = f.stack.popd();
+		f.stored(aaddr, d);
 	}
 	static addstore(f: Forth) {
 		const aaddr = f.stack.pop();
@@ -688,8 +719,8 @@ export default class ForthBuiltins {
 				if (f.words[lc]) {
 					await f.xw(lc);
 				} else {
-					const value = parseInt(current, base());
-					if (isNaN(value)) {
+					const [value, left] = asNumber(current, base());
+					if (left) {
 						f.throw(
 							ForthException.invalidnumber,
 							`invalid number: ${current} (in base ${base()})`
@@ -937,48 +968,40 @@ export default class ForthBuiltins {
 
 	static picend(f: Forth) {
 		const { picbuf, toPicbuf } = ForthBuiltins;
-		f.stack.pop();
-		f.stack.pop();
+		f.stack.popd();
 
 		const len = picbuf - toPicbuf();
 		f.stack.push(toPicbuf());
 		f.stack.push(len);
 	}
 
-	// TODO: double-width numbers
 	static picdigit(f: Forth) {
 		const { base, toPicbuf } = ForthBuiltins;
 
-		const hi = f.stack.pop();
-		const lo = f.stack.pop();
+		const value = f.stack.popd();
 		const offset = toPicbuf() - 1;
-		const result = doPictureDigit(hi, lo, base(), f.cellmax);
+		const result = doPictureDigit(value, base());
 		f.store8(offset, result.char);
 		toPicbuf(offset);
-		f.stack.push(result.flo);
-		f.stack.push(result.fhi);
+		f.stack.pushd(result.value);
 	}
 
-	// TODO: double-width numbers
 	static picall(f: Forth) {
 		const { base, toPicbuf } = ForthBuiltins;
 		const b = base();
-		var hi = f.stack.pop();
-		var lo = f.stack.pop();
+		var value = f.stack.popd();
 
 		while (true) {
 			const offset = toPicbuf() - 1;
-			const result = doPictureDigit(hi, lo, b, f.cellmax);
+			const result = doPictureDigit(value, b);
 			f.store8(offset, result.char);
 			toPicbuf(offset);
 
-			if (result.flo === 0 && result.fhi === 0) break;
-			lo = result.flo;
-			hi = result.fhi;
+			value = result.value;
+			if (!value) break;
 		}
 
-		f.stack.push(0);
-		f.stack.push(0);
+		f.stack.pushd(0);
 	}
 
 	static squote(f: Forth) {
@@ -1261,70 +1284,54 @@ export default class ForthBuiltins {
 	}
 
 	// TODO: incorrect (see tests)
-	// TODO: double-width numbers
 	static fmmod(f: Forth) {
 		const n = f.signed(f.stack.pop());
-		const hi = f.stack.pop();
-		const lo = f.stack.pop();
+		const d = f.signedd(f.stack.popd());
 
 		if (n == 0) return f.throw(ForthException.divzero, 'division by zero');
 
-		const full = hi * f.cellmax + lo;
-		const div = Math.floor(full / n);
-		const rem = full % n;
+		const div = Math.floor(d / n);
+		const rem = d % n;
 		f.stack.push(rem);
 		f.stack.push(div);
 	}
-	// TODO: double-width numbers
+
 	static ummod(f: Forth) {
 		const u = f.stack.pop();
-		const hi = f.stack.pop();
-		const lo = f.stack.pop();
+		const ud = f.stack.popd();
 
 		if (u == 0) return f.throw(ForthException.divzero, 'division by zero');
 
-		const full = hi * f.cellmax + lo;
-		const div = Math.floor(full / u);
-		const rem = full % u;
+		const div = Math.floor(ud / u);
+		const rem = ud % u;
 		f.stack.push(rem);
 		f.stack.push(div);
 	}
 
 	// TODO: incorrect (see tests)
-	// TODO: double-width numbers
 	static smrem(f: Forth) {
 		const n = f.signed(f.stack.pop());
-		const hi = f.stack.pop();
-		const lo = f.stack.pop();
+		const d = f.signedd(f.stack.popd());
 
 		if (n == 0) return f.throw(ForthException.divzero, 'division by zero');
 
-		const full = hi * f.cellmax + lo;
-		const div = Math.floor(full / n);
-		const rem = full % n;
+		const div = Math.floor(d / n);
+		const rem = d % n;
 		f.stack.push(rem);
 		f.stack.push(div);
 	}
 
-	// TODO: double-width numbers
 	static mmul(f: Forth) {
 		const n2 = f.signed(f.stack.pop());
 		const n1 = f.signed(f.stack.pop());
 		const d = n1 * n2;
-		const lo = d % f.cellmax;
-		const hi = Math.floor(d / f.cellmax);
-		f.stack.push(lo);
-		f.stack.push(hi);
+		f.stack.pushd(d);
 	}
-	// TODO: double-width numbers
 	static ummul(f: Forth) {
 		const u2 = f.stack.pop();
 		const u1 = f.stack.pop();
 		const d = u1 * u2;
-		const lo = d % f.cellmax;
-		const hi = Math.floor(d / f.cellmax);
-		f.stack.push(lo);
-		f.stack.push(hi);
+		f.stack.pushd(d);
 	}
 
 	static move(f: Forth) {
@@ -1433,8 +1440,7 @@ export default class ForthBuiltins {
 		f.rstack.push(orig + 1);
 		const index = f.rstack.top();
 		if (f.signed(index) === f.signed(limit)) {
-			f.rstack.pop();
-			f.rstack.pop();
+			f.rstack.popd();
 			f.stack.pushf(true);
 		} else {
 			f.stack.pushf(false);
@@ -1464,8 +1470,7 @@ export default class ForthBuiltins {
 		f.rstack.push(orig + step);
 		const index = f.rstack.top();
 		if (loopPassed(limit, index, f.signed(step), orig)) {
-			f.rstack.pop();
-			f.rstack.pop();
+			f.rstack.popd();
 			f.stack.pushf(true);
 		} else {
 			f.stack.pushf(false);
@@ -1476,7 +1481,6 @@ export default class ForthBuiltins {
 		f.rstack.pop();
 	}
 	static rdrop2(f: Forth) {
-		f.rstack.pop();
-		f.rstack.pop();
+		f.rstack.popd();
 	}
 }

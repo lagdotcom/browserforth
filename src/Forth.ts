@@ -47,14 +47,17 @@ export default class Forth {
 	environment: Record<string, number[]>;
 	exception: ForthException;
 	fetch: (addr: number) => number;
+	fetchd: (addr: number) => number;
 	ip: number;
 	mem: DataView;
 	options: ForthOptions;
 	rstack: Stack;
 	signed: (x: number) => number;
+	signedd: (x: number) => number;
 	stack: Stack;
 	stackptr: number;
 	store: (addr: number, x: number) => number;
+	stored: (addr: number, x: number) => number;
 	sys: { [name: string]: number };
 	syso: number;
 
@@ -101,12 +104,18 @@ export default class Forth {
 
 		if (this.options.cellsize == 2) {
 			this.fetch = this.fetch16;
+			this.fetchd = this.fetch32;
 			this.signed = this.signed16;
+			this.signedd = this.signed32;
 			this.store = this.store16;
+			this.stored = this.store32;
 		} else if (this.options.cellsize == 4) {
 			this.fetch = this.fetch32;
+			this.fetchd = this.fetch64;
 			this.signed = this.signed32;
+			this.signedd = this.signed64;
 			this.store = this.store32;
+			this.stored = this.store64;
 		} else throw new Error('Invalid cell size');
 		this.stack = this.newStack(this.options.stacksize);
 		this.rstack = this.newStack(this.options.rstacksize);
@@ -435,5 +444,18 @@ export default class Forth {
 	store32(addr: number, x: number) {
 		this.mem.setUint32(addr, x);
 		return addr + 4;
+	}
+
+	fetch64(addr: number) {
+		return Number(this.mem.getBigUint64(addr));
+	}
+
+	signed64(x: number) {
+		return Number(new BigInt64Array([BigInt(x)])[0]);
+	}
+
+	store64(addr: number, x: number) {
+		this.mem.setBigUint64(addr, BigInt(x));
+		return addr + 8;
 	}
 }
