@@ -95,7 +95,7 @@ export default class ForthBuiltins {
 	static wordbuf: number;
 
 	static async attach(f: Forth) {
-		const { IsImmediate, IsCompileOnly } = HeaderFlags;
+		const { IsHidden, IsImmediate, IsCompileOnly } = HeaderFlags;
 
 		ForthBuiltins.state = f.addVariable('state', 0);
 		ForthBuiltins.base = f.addVariable('base', 10);
@@ -106,8 +106,12 @@ export default class ForthBuiltins {
 
 		f.here += f.options.holdsize;
 		ForthBuiltins.picbuf = f.here;
-		f.addConstant('picbuf', ForthBuiltins.picbuf);
-		ForthBuiltins.toPicbuf = f.addVariable('>picbuf', ForthBuiltins.picbuf);
+		f.addConstant('picbuf', ForthBuiltins.picbuf, IsHidden);
+		ForthBuiltins.toPicbuf = f.addVariable(
+			'>picbuf',
+			ForthBuiltins.picbuf,
+			IsHidden
+		);
 
 		ForthBuiltins.wordbuf = f.here;
 		f.here += f.options.wordsize;
@@ -128,13 +132,13 @@ export default class ForthBuiltins {
 		f.addBuiltin('compile-only', this.compileonly);
 		f.addBuiltin('debug!', this.setdebug);
 		f.addBuiltin('s=', this.seq);
-		f.addBuiltin('(literal)', this.literalRt);
-		f.addBuiltin('(sliteral)', this.sliteralRt);
-		f.addBuiltin('(branch)', this.branch);
-		f.addBuiltin('(branch0)', this.branch0);
-		f.addBuiltin('(do)', this.doRt);
-		f.addBuiltin('(loop)', this.loopRt);
-		f.addBuiltin('(+loop)', this.addloopRt);
+		f.addBuiltin('(literal)', this.literalRt, IsHidden);
+		f.addBuiltin('(sliteral)', this.sliteralRt, IsHidden);
+		f.addBuiltin('(branch)', this.branch, IsHidden);
+		f.addBuiltin('(branch0)', this.branch0, IsHidden);
+		f.addBuiltin('(do)', this.doRt, IsHidden);
+		f.addBuiltin('(loop)', this.loopRt, IsHidden);
+		f.addBuiltin('(+loop)', this.addloopRt, IsHidden);
 
 		// --- core
 		f.addBuiltin('!', this.store);
@@ -318,7 +322,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('unused', this.unused);
 		// f.addBuiltin('value', this.value);
 		f.addBuiltin('within', this.within);
-		// f.addBuiltin('\\', this.backslash);
+		f.addBuiltin('\\', this.backslash, IsImmediate);
 
 		// --- double-number (incomplete list)
 		f.addBuiltin('d=', this.deq);
@@ -728,7 +732,7 @@ export default class ForthBuiltins {
 		const handle = async () => {
 			if (current) {
 				const lc = current.toLowerCase();
-				if (f.words[lc]) {
+				if (f.viswords[lc]) {
 					await f.xw(lc);
 				} else {
 					const [value, left] = asNumber(current, base());
@@ -805,7 +809,7 @@ export default class ForthBuiltins {
 	static quote(f: Forth) {
 		const result = scan(f, ...whitespaces);
 		if (typeof result === 'string') {
-			const xt = f.words[result.toLowerCase()];
+			const xt = f.viswords[result.toLowerCase()];
 			if (!xt)
 				return f.throw(
 					ForthException.undefinedword,
@@ -823,7 +827,7 @@ export default class ForthBuiltins {
 	static postpone(f: Forth) {
 		const result = scan(f, ...whitespaces);
 		if (typeof result === 'string') {
-			const xt = f.words[result.toLowerCase()];
+			const xt = f.viswords[result.toLowerCase()];
 			if (!xt)
 				return f.throw(
 					ForthException.undefinedword,
@@ -848,7 +852,7 @@ export default class ForthBuiltins {
 	}
 
 	static words(f: Forth) {
-		const wdict = f.words;
+		const wdict = f.viswords;
 		f.options.output.type(Object.keys(wdict).join(' '));
 	}
 
@@ -881,8 +885,9 @@ export default class ForthBuiltins {
 		// parse-name header, ]
 		const result = scan(f, ...whitespaces);
 		if (typeof result === 'string') {
-			f.debug('defining:', result);
-			f.header(result);
+			const name = result.toLowerCase();
+			f.debug('defining:', name);
+			f.header(name);
 			const cfa = f.here + f.options.cellsize;
 			f.write(cfa);
 			return ForthBuiltins.compileMode(f);
@@ -944,13 +949,14 @@ export default class ForthBuiltins {
 	static create(f: Forth) {
 		const result = scan(f, ...whitespaces);
 		if (typeof result === 'string') {
-			f.debug('defining:', result);
+			const name = result.toLowerCase();
+			f.debug('defining:', name);
 			f.here = aligned(f.here, f.options.cellsize);
-			f.header(result, HeaderFlags.IsCreate);
+			f.header(name, HeaderFlags.IsCreate);
 
 			const xt = f.words.nop;
 			const winfo = f.wordinfo(xt);
-			f.debug(`${result} does> nop`);
+			f.debug(`${name} does> nop`);
 			f.write(winfo.dfa);
 			return;
 		}
@@ -1499,7 +1505,7 @@ export default class ForthBuiltins {
 	static find(f: Forth) {
 		const caddr = f.stack.pop();
 		const str = f.readString(caddr + f.options.cellsize, f.fetch(caddr));
-		const xt = f.words[str.toLowerCase()];
+		const xt = f.viswords[str.toLowerCase()];
 		if (xt) {
 			const winfo = f.wordinfo(xt);
 			f.stack.push(xt);
@@ -1541,5 +1547,9 @@ export default class ForthBuiltins {
 		f.stack.pushd(value);
 		f.stack.push(addr + i);
 		f.stack.push(src.length - i);
+	}
+
+	static backslash(f: Forth) {
+		scan(f, '\n');
 	}
 }

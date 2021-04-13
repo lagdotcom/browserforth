@@ -3,6 +3,7 @@ import ForthBuiltins from './ForthBuiltins';
 import ForthException from './ForthException';
 import Input from './input/Input';
 import NullInput from './input/NullInput';
+import libraries, { LibraryName } from './libraries';
 import NullOutput from './output/NullOutput';
 import Output from './output/Output';
 import Stack from './stack/Stack';
@@ -16,6 +17,7 @@ interface ForthOptions {
 	exceptions: boolean;
 	holdsize: number;
 	input: Input;
+	libraries: LibraryName[];
 	memory: number;
 	output: Output;
 	padsize: number;
@@ -29,6 +31,7 @@ export type ForthBuiltin = (f: Forth) => Promise<void> | void;
 export enum HeaderFlags {
 	LengthMask = 0x00ff,
 	IsWord = 0x0100,
+	IsHidden = 0x0200,
 	IsCreate = 0x0400,
 	IsCompileOnly = 0x0800,
 	IsBuiltin = 0x1000,
@@ -69,6 +72,7 @@ export default class Forth {
 				typeof options.exceptions !== 'undefined' ? options.exceptions : false,
 			holdsize: options.holdsize || 100,
 			input: options.input || new NullInput(),
+			libraries: options.libraries || [],
 			memory: options.memory || 60000,
 			output: options.output || new NullOutput(),
 			padsize: options.padsize || 84,
@@ -121,7 +125,7 @@ export default class Forth {
 		this.rstack = this.newStack(this.options.rstacksize);
 		this.cstack = this.newStack(this.options.cstacksize);
 
-		this.options.output.type(`browserforth v${pkg.version} starting...\n`);
+		this.options.output.type(`browserforth v${pkg.version} starting...`);
 		this.ip = 0;
 
 		// base system definitions
@@ -134,7 +138,10 @@ export default class Forth {
 
 	async initialise() {
 		await ForthBuiltins.attach(this);
-		//await ExceptionWords.attach(this);
+		for (var i = 0; i < this.options.libraries.length; i++)
+			await this.runString(libraries[this.options.libraries[i]]);
+
+		this.options.output.type(` ready, ${this.unused} bytes unused\n`);
 	}
 
 	private newStack(size: number) {
@@ -162,7 +169,7 @@ export default class Forth {
 	}
 
 	get unused() {
-		return this.rstack.pbottom - this.here;
+		return this.stackptr - this.here;
 	}
 
 	dump(start: number, length: number) {
@@ -184,7 +191,7 @@ export default class Forth {
 	private addSysVars() {
 		this.here = this.syso;
 		for (var name in this.sys) {
-			this.addVariable(name, 0, this.sys[name]);
+			this.addVariable(name, 0, 0, this.sys[name]);
 		}
 	}
 
@@ -319,6 +326,21 @@ export default class Forth {
 		return wordlist;
 	}
 
+	get viswords() {
+		const wordlist: { [name: string]: number } = {};
+
+		var link = this.link;
+		while (link) {
+			const winfo = this.wordinfo(link + this.options.cellsize);
+			if (!(winfo.flags & HeaderFlags.IsHidden))
+				wordlist[winfo.name] = winfo.xt;
+
+			link = winfo.link;
+		}
+
+		return wordlist;
+	}
+
 	wordinfo(xt: number) {
 		const { cellsize } = this.options;
 
@@ -345,16 +367,17 @@ export default class Forth {
 		this.builtins.push(b);
 	}
 
-	addConstant(name: string, value: number) {
+	addConstant(name: string, value: number, flags: HeaderFlags = 0) {
 		this.debug('constant:', name, value);
 
-		this.header(name, HeaderFlags.IsConstant);
+		this.header(name, HeaderFlags.IsConstant | flags);
 		this.write(value);
 	}
 
 	addVariable(
 		name: string,
 		initial: number = 0,
+		flags: HeaderFlags = 0,
 		org?: number
 	): GetterSetter<number> {
 		this.debug('variable:', name, initial, org);
@@ -365,7 +388,7 @@ export default class Forth {
 		}
 
 		const addr = org;
-		this.header(name, HeaderFlags.IsVariable);
+		this.header(name, HeaderFlags.IsVariable | flags);
 		this.write(org);
 		return (n?: number) => {
 			if (typeof n === 'number') this.store(addr, n);
