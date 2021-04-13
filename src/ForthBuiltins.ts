@@ -44,8 +44,11 @@ function loopPassed(limit: number, index: number, step: number, orig: number) {
 }
 
 const numberChars = '0123456789abcdefghijklmnopqrstuvwxyz';
-function asNumber(src: string, base: number): [value: number, left: number] {
-	if (src[0] === "'" && src[2] === "'") return [src.charCodeAt(1), 0];
+function asNumber(
+	src: string,
+	base: number
+): [value: number, left: number, double: boolean] {
+	if (src[0] === "'" && src[2] === "'") return [src.charCodeAt(1), 0, false];
 
 	var i = 0;
 	if (src[i] === '#') {
@@ -65,6 +68,7 @@ function asNumber(src: string, base: number): [value: number, left: number] {
 		i++;
 	}
 
+	var double = false;
 	var value = 0;
 	const avail = numberChars.slice(0, base);
 	const num = src.toLowerCase();
@@ -73,13 +77,18 @@ function asNumber(src: string, base: number): [value: number, left: number] {
 		const j = avail.indexOf(ch);
 		if (j >= 0) value = value * base + j;
 		else {
+			if (ch === '.' && i == src.length - 1) {
+				double = true;
+				break;
+			}
+
 			if (negative) value = -value;
-			return [value, src.length - i];
+			return [value, src.length - i, double];
 		}
 	}
 
 	if (negative) value = -value;
-	return [value, 0];
+	return [value, 0, double];
 }
 
 export default class ForthBuiltins {
@@ -133,6 +142,7 @@ export default class ForthBuiltins {
 		f.addBuiltin('debug!', this.setdebug);
 		f.addBuiltin('s=', this.seq);
 		f.addBuiltin('(literal)', this.literalRt, IsHidden);
+		f.addBuiltin('(2literal)', this.literal2Rt, IsHidden);
 		f.addBuiltin('(sliteral)', this.sliteralRt, IsHidden);
 		f.addBuiltin('(branch)', this.branch, IsHidden);
 		f.addBuiltin('(branch0)', this.branch0, IsHidden);
@@ -280,9 +290,9 @@ export default class ForthBuiltins {
 		// f.addBuiltin('.r', this.dotr);
 		f.addBuiltin('0<>', this.zne);
 		f.addBuiltin('0>', this.zgt);
-		// f.addBuiltin('2>r', this.dtor); // swap >r >r
-		// f.addBuiltin('2r>', this.dfromr); // r> r> swap
-		// f.addBuiltin('2r@', this.drpeek); // r> r> 2dup >r >r swap
+		f.addBuiltin('2>r', this.dtor);
+		f.addBuiltin('2r>', this.dfromr);
+		f.addBuiltin('2r@', this.drpeek);
 		// f.addBuiltin(':noname', this.noname);
 		f.addBuiltin('<>', this.ne);
 		// f.addBuiltin('?do', this.qdo);
@@ -325,7 +335,10 @@ export default class ForthBuiltins {
 		f.addBuiltin('\\', this.backslash, IsImmediate);
 
 		// --- double-number (incomplete list)
+		f.addBuiltin('2literal', this.literal2, IsImmediate | IsCompileOnly);
+		f.addBuiltin('d.', this.ddot);
 		f.addBuiltin('d=', this.deq);
+		await f.runString(': 2variable create 0 , 0 , ;');
 
 		// --- facility (incomplete list)
 		f.addBuiltin('at-xy', this.atxy);
@@ -623,10 +636,18 @@ export default class ForthBuiltins {
 		const x = f.stack.pop();
 		f.rstack.push(x);
 	}
+	static dtor(f: Forth) {
+		const d = f.stack.popd();
+		f.rstack.pushd(d);
+	}
 
 	static fromr(f: Forth) {
 		const x = f.rstack.pop();
 		f.stack.push(x);
+	}
+	static dfromr(f: Forth) {
+		const d = f.rstack.popd();
+		f.stack.pushd(d);
 	}
 
 	static rpeek(f: Forth) {
@@ -636,6 +657,10 @@ export default class ForthBuiltins {
 	static rpeek2(f: Forth) {
 		const x = f.rstack.top(2);
 		f.stack.push(x);
+	}
+	static drpeek(f: Forth) {
+		const d = f.rstack.topd();
+		f.stack.pushd(d);
 	}
 
 	static dec(f: Forth) {
@@ -735,15 +760,17 @@ export default class ForthBuiltins {
 				if (f.viswords[lc]) {
 					await f.xw(lc);
 				} else {
-					const [value, left] = asNumber(current, base());
+					const [value, left, double] = asNumber(current, base());
 					if (left) {
 						f.throw(
 							ForthException.invalidnumber,
 							`invalid number: ${current} (in base ${base()})`
 						);
 					} else {
-						f.stack.push(value);
-						if (state()) ForthBuiltins.literal(f);
+						f.debug('number:', value);
+						double ? f.stack.pushd(value) : f.stack.push(value);
+						if (state())
+							double ? ForthBuiltins.literal2(f) : ForthBuiltins.literal(f);
 					}
 				}
 
@@ -773,10 +800,14 @@ export default class ForthBuiltins {
 		const value = f.stack.pop();
 		f.options.output.type(value.toString(base) + ' ');
 	}
-
 	static dot(f: Forth) {
 		const base = ForthBuiltins.base();
 		const value = f.signed(f.stack.pop());
+		f.options.output.type(value.toString(base) + ' ');
+	}
+	static ddot(f: Forth) {
+		const base = ForthBuiltins.base();
+		const value = f.stack.popd();
 		f.options.output.type(value.toString(base) + ' ');
 	}
 
@@ -865,16 +896,27 @@ export default class ForthBuiltins {
 	}
 
 	static literal(f: Forth) {
-		const value = f.stack.pop();
-		f.debug('compile: (literal)', value);
+		const x = f.stack.pop();
+		f.debug('compile: (literal)', x);
 		f.write(f.words['(literal)']);
-		f.write(value);
+		f.write(x);
 	}
-
 	static literalRt(f: Forth) {
 		const value = f.fetch(f.ip);
 		f.ip += f.options.cellsize;
 		f.stack.push(value);
+	}
+
+	static literal2(f: Forth) {
+		const d = f.stack.popd();
+		f.debug('compile: (2literal)', d);
+		f.write(f.words['(2literal)']);
+		f.writed(d);
+	}
+	static literal2Rt(f: Forth) {
+		const d = f.fetchd(f.ip);
+		f.ip += f.options.cellsize * 2;
+		f.stack.pushd(d);
 	}
 
 	static exit(f: Forth) {

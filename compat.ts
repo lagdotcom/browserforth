@@ -16,7 +16,7 @@ function stats(f: Forth, name: Wordlist) {
 	return { found, max: list.length, perc, missing };
 }
 
-const f = new Forth();
+const f = new Forth({ libraries: ['exceptions'] });
 f.initialise().then(() => {
 	Object.keys(wordlists).forEach(name => {
 		const { found, max, perc, missing } = stats(f, name as Wordlist);

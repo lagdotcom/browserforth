@@ -272,7 +272,10 @@ export default class Forth {
 				this.stack.push(code);
 				return resolve();
 			} else {
-				if (winfo.flags & HeaderFlags.IsCreate) this.stack.push(winfo.dfa);
+				if (winfo.flags & HeaderFlags.IsCreate) {
+					this.debug('dfa:', winfo.dfa);
+					this.stack.push(winfo.dfa);
+				}
 				this.pushIp();
 				this.ip = code;
 				await this.runCpu();
@@ -428,6 +431,10 @@ export default class Forth {
 
 	write(x: number) {
 		this.here = this.store(this.here, x);
+	}
+
+	writed(x: number) {
+		this.here = this.stored(this.here, x);
 	}
 
 	write8(x: number) {

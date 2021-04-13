@@ -10,4 +10,5 @@ export default interface Stack {
 	pop(): number;
 	popd(): number;
 	top(offset?: number): number;
+	topd(offset?: number): number;
 }

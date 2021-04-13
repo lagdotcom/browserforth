@@ -21,12 +21,15 @@ describe('forth standard tests', () => {
 		}
 	}
 
+	const T = -1;
+	const F = 0;
+
 	it('supports <# # #s #>', async () =>
 		await t(
 			[': gp3 <# 1 0 # # #> s" 01" s= ;'],
-			['gp3', -1],
+			['gp3', T],
 			[': gp4 <# 1 0 #s #> s" 1" s= ;'],
-			['gp4', -1]
+			['gp4', T]
 		));
 
 	it("supports ' and [']", async () =>
@@ -67,9 +70,9 @@ describe('forth standard tests', () => {
 	it('supports , 2@ 2! cell+', async () =>
 		await t(
 			['here 1 , here 2 , constant 2nd constant 1st'],
-			['1st 2nd u<', -1],
-			['1st cell+ 2nd =', -1],
-			['1st 1 cells + 2nd =', -1],
+			['1st 2nd u<', T],
+			['1st cell+ 2nd =', T],
+			['1st 1 cells + 2nd =', T],
 			['1st @ 2nd @', 1, 2],
 			['5 1st !'],
 			['1st @ 2nd @', 5, 2],
@@ -78,14 +81,14 @@ describe('forth standard tests', () => {
 			['1st 2@', 6, 5],
 			['2 1 1st 2!'],
 			['1st 2@', 2, 1]
-			// ['1s 1st ! 1st @ 1s =', -1]
+			// ['1s 1st ! 1st @ 1s =', T]
 		));
 
 	it('supports 2*', async () =>
 		await t(
 			['0 2*', 0],
 			['1 2*', 2],
-			['hex 4000 2* 8000 =', -1]
+			['hex 4000 2* 8000 =', T]
 			// ['1s 2* 1 xor', '1s'],
 			// ['msb 2*', '0s']
 		));
@@ -98,6 +101,31 @@ describe('forth standard tests', () => {
 			// ['1s 2/', '1s'],
 			// ['1s 1 xor 2/', '1s'],
 			// ['msb 2/ msb and', 'msb'],
+		));
+
+	it('supports 2literal', async () =>
+		t(
+			[': cd1 [ -1. ] 2literal ;'],
+			['cd1', -1, -1],
+			['2variable 2v4 immediate 5 6 2v4 2!'],
+			[': cd7 2v4 [ 2@ ] 2literal ; cd7', 5, 6],
+			[': cd8 [ 6 7 ] 2v4 [ 2! ] ; 2v4 2@', 6, 7]
+		));
+
+	it('supports 2variable', async () =>
+		t(
+			['2variable 2v1'],
+			['0. 2v1 2!'],
+			['   2v1 2@', 0, 0],
+			['-1 -2 2v1 2!'],
+			['      2v1 2@', -1, -2],
+			[': cd2 2variable ;'],
+			['cd2 2v2'],
+			[': cd3 2v2 2! ;'],
+			['-2 -1 cd3'],
+			['2v2 2@', -2, -1],
+			['2variable 2v3 immediate 5 6 2v3 2!'],
+			['2v3 2@', 5, 6]
 		));
 
 	it('supports 2over', async () => t(['1 2 3 4 2over', 1, 2, 3, 4, 1, 2]));
@@ -127,6 +155,19 @@ describe('forth standard tests', () => {
 			['y123', 123]
 		));
 
+	it('supports d=', async () =>
+		await t(
+			['-1. -1. d=', T],
+			['-1.  0. d=', F],
+			['-1.  1. d=', F],
+			[' 0. -1. d=', F],
+			[' 0.  0. d=', T],
+			[' 0.  1. d=', F],
+			[' 1. -1. d=', F],
+			[' 1.  0. d=', F],
+			[' 1.  1. d=', T]
+		));
+
 	it('supports do i j loop +loop', async () =>
 		await t(
 			[': gd1 do i                 loop ;'],
@@ -148,7 +189,7 @@ describe('forth standard tests', () => {
 			[': does1 does> @ 1 + ;'],
 			[': does2 does> @ 2 + ;'],
 			['create cr1'],
-			['cr1 here =', -1],
+			['cr1 here =', T],
 			['1 ,'],
 			['cr1 @', 1],
 			['does1'],
@@ -157,9 +198,9 @@ describe('forth standard tests', () => {
 			['cr1', 3],
 			[': weird: create does> 1 + does> 2 + ;'],
 			['weird: w1'],
-			["' w1 >body here =", -1],
-			['w1 here 1 + =', -1],
-			['w1 here 2 + =', -1]
+			["' w1 >body here =", T],
+			['w1 here 1 + =', T],
+			['w1 here 2 + =', T]
 		));
 
 	it('supports fill move', async () =>
@@ -183,8 +224,8 @@ describe('forth standard tests', () => {
 			[': gt1 ; : gt2 ; immediate'],
 			['here 3 , char g c, char t c, char 1 c, constant gt1string'],
 			['here 3 , char g c, char t c, char 2 c, constant gt2string'],
-			["gt1string find swap ' gt1 =", -1, -1],
-			["gt2string find swap ' gt2 =", 1, -1]
+			["gt1string find swap ' gt1 =", -1, T],
+			["gt2string find swap ' gt2 =", 1, T]
 		));
 
 	it('supports fm/mod', async () =>
@@ -208,10 +249,10 @@ describe('forth standard tests', () => {
 		));
 
 	it('supports hold', async () =>
-		await t([': gp1 <# 65 hold 66 hold 0 0 #> s" BA" s= ;'], ['gp1', -1]));
+		await t([': gp1 <# 65 hold 66 hold 0 0 #> s" BA" s= ;'], ['gp1', T]));
 
 	it('supports holds', async () =>
-		await t(['<# 123 0 #s s" Number: " holds #> s" Number: 123" s=', -1]));
+		await t(['<# 123 0 #s s" Number: " holds #> s" Number: 123" s=', T]));
 
 	it('supports if', async () =>
 		await t(
@@ -245,7 +286,7 @@ describe('forth standard tests', () => {
 			['hex 1 0 lshift', 1],
 			['1 1 lshift', 2],
 			['1 2 lshift', 4],
-			['1 f lshift 8000 =', -1]
+			['1 f lshift 8000 =', T]
 			// ['1s 1 lshift 1 xor', '1s'],
 			// ['msb 1 lshift', 0]
 		));
@@ -304,7 +345,7 @@ describe('forth standard tests', () => {
 		));
 
 	it('supports sign', async () =>
-		await t(['<# -1 sign 0 sign -1 sign 0 0 #> s" --" s=', -1]));
+		await t(['<# -1 sign 0 sign -1 sign 0 0 #> s" --" s=', T]));
 
 	it('supports sm/rem', async () =>
 		await t(
@@ -392,7 +433,7 @@ describe('forth standard tests', () => {
 		));
 
 	it('supports >body', async () =>
-		await t(['create cr0'], ["' cr0 >body here =", -1]));
+		await t(['create cr0'], ["' cr0 >body here =", T]));
 
 	it('supports >number', async () =>
 		await t(
@@ -400,18 +441,18 @@ describe('forth standard tests', () => {
 			[': gn-string gn-buf 1 ;'],
 			[': ok? gn-buf char+ 0 d= ;'],
 			[": gn' [char] ' word cell+ c@ gn-buf c! gn-string ;"],
-			["0 0 gn' 0'    >number       ok?", 0, 0, -1],
-			["0 0 gn' 1'    >number       ok?", 1, 0, -1],
-			["1 0 gn' 1'    >number       ok?", 11, 0, -1],
-			["0 0 gn' -'    >number       ok?", 0, 0, 0],
-			["0 0 gn' +'    >number       ok?", 0, 0, 0],
-			["0 0 gn' .'    >number       ok?", 0, 0, 0],
+			["0 0 gn' 0'    >number       ok?", 0, 0, T],
+			["0 0 gn' 1'    >number       ok?", 1, 0, T],
+			["1 0 gn' 1'    >number       ok?", 11, 0, T],
+			["0 0 gn' -'    >number       ok?", 0, 0, F],
+			["0 0 gn' +'    >number       ok?", 0, 0, F],
+			["0 0 gn' .'    >number       ok?", 0, 0, F],
 			[': >number-based base @ >r base ! >number r> base ! ;'],
-			["0 0 gn' 2' 16 >number-based ok?", 2, 0, -1],
-			["0 0 gn' 2'  2 >number-based ok?", 0, 0, 0],
-			["0 0 gn' F' 16 >number-based ok?", 15, 0, -1],
-			["0 0 gn' G' 16 >number-based ok?", 0, 0, 0],
-			["0 0 gn' G' 36 >number-based ok?", 16, 0, -1],
-			["0 0 gn' z' 36 >number-based ok?", 35, 0, -1]
+			["0 0 gn' 2' 16 >number-based ok?", 2, 0, T],
+			["0 0 gn' 2'  2 >number-based ok?", 0, 0, F],
+			["0 0 gn' F' 16 >number-based ok?", 15, 0, T],
+			["0 0 gn' G' 16 >number-based ok?", 0, 0, F],
+			["0 0 gn' G' 36 >number-based ok?", 16, 0, T],
+			["0 0 gn' z' 36 >number-based ok?", 35, 0, T]
 		));
 });

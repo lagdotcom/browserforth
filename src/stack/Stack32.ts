@@ -66,4 +66,10 @@ export default class Stack32 implements Stack {
 
 		return this.mem.getUint32(this.p + offset * cell);
 	}
+
+	topd(offset: number = 0) {
+		if (this.p >= this.ptop - cell) throw new Error('Stack underflow');
+
+		return Number(this.mem.getBigUint64(this.p + offset * cell * 2));
+	}
 }
