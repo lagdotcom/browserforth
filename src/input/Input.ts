@@ -1,4 +1,6 @@
+import GotInput from './GotInput';
+
 export default interface Input {
 	keyq: boolean;
-	key(): Promise<KeyboardEvent>;
+	key(): Promise<GotInput>;
 }

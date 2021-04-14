@@ -1,9 +1,10 @@
+import GotInput from './GotInput';
 import Input from './Input';
 
 export default class DocumentInput implements Input {
 	el: HTMLDivElement;
-	events: KeyboardEvent[];
-	promises: ((e: KeyboardEvent) => void)[];
+	events: GotInput[];
+	promises: ((e: GotInput) => void)[];
 
 	constructor() {
 		this.events = [];
@@ -12,7 +13,8 @@ export default class DocumentInput implements Input {
 		this.el = document.createElement('div');
 		document.body.append(this.el);
 
-		document.addEventListener('keypress', e => {
+		document.addEventListener('keypress', kp => {
+			const e = this.toEvent(kp);
 			const p = this.promises.shift();
 			if (p) p(e);
 			else this.events.push(e);
@@ -29,12 +31,12 @@ export default class DocumentInput implements Input {
 
 	key() {
 		if (this.keyq) {
-			const e = this.events.shift() as KeyboardEvent;
+			const e = this.events.shift() as GotInput;
 			this.status();
 			return Promise.resolve(e);
 		}
 
-		return new Promise<KeyboardEvent>(resolve => {
+		return new Promise<GotInput>(resolve => {
 			this.promises.push(resolve);
 			this.status();
 		});
@@ -42,5 +44,12 @@ export default class DocumentInput implements Input {
 
 	private status() {
 		this.el.textContent = `${this.events.length} keys in buffer, ${this.promises.length} words waiting for input`;
+	}
+
+	private toEvent(kp: KeyboardEvent): GotInput {
+		// TODO: deprecated
+		const e = { key: kp.key, code: kp.charCode };
+		// console.log('toEvent', e);
+		return e;
 	}
 }

@@ -2,12 +2,14 @@
 	"name": "browserforth",
 	"version": "0.1.1",
 	"description": "A Forth bridge for the browser!",
+	"type": "commonjs",
 	"main": "src/main.ts",
 	"scripts": {
 		"build": "webpack --mode production",
 		"dev": "webpack --mode development",
 		"start": "webpack serve --mode development --content-base ./dist --open",
 		"lint": "prettier --write src",
+		"cli": "ts-node -O {\\\"module\\\":\\\"commonjs\\\"} src/cli.ts",
 		"compat": "ts-node -O {\\\"module\\\":\\\"commonjs\\\"} compat.ts",
 		"test": "mocha -r esm -r ts-node/register src/**/*.spec.ts"
 	},

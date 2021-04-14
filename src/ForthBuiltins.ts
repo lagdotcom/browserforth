@@ -685,10 +685,7 @@ export default class ForthBuiltins {
 
 	static async key(f: Forth) {
 		return f.options.input.key().then(
-			e => {
-				// TODO: deprecated
-				f.stack.push(e.charCode);
-			},
+			e => f.stack.push(e.code),
 			() => {
 				// TODO: throw?
 				f.stack.push(0);
@@ -1416,13 +1413,12 @@ export default class ForthBuiltins {
 				var i = 0;
 				while (true) {
 					const e = await f.options.input.key();
-					if (e.code === 'Enter') {
+					if (e.key === 'Enter') {
 						f.stack.push(i);
 						return resolve();
 					}
 
-					// TODO: deprecated
-					f.store8(addr + i, e.charCode);
+					f.store8(addr + i, e.code);
 					i++;
 					if (i >= maxlen) {
 						f.stack.push(i);

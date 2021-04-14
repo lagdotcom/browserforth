@@ -321,7 +321,7 @@ export default class Forth {
 		var link = this.link;
 		while (link) {
 			const winfo = this.wordinfo(link + this.options.cellsize);
-			wordlist[winfo.name] = winfo.xt;
+			if (!wordlist[winfo.name]) wordlist[winfo.name] = winfo.xt;
 
 			link = winfo.link;
 		}
@@ -335,7 +335,7 @@ export default class Forth {
 		var link = this.link;
 		while (link) {
 			const winfo = this.wordinfo(link + this.options.cellsize);
-			if (!(winfo.flags & HeaderFlags.IsHidden))
+			if (!wordlist[winfo.name] && !(winfo.flags & HeaderFlags.IsHidden))
 				wordlist[winfo.name] = winfo.xt;
 
 			link = winfo.link;
