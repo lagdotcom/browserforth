@@ -1,6 +1,8 @@
 import Input from './Input';
 
 export default class NullInput implements Input {
+	close() {}
+
 	get keyq() {
 		return false;
 	}

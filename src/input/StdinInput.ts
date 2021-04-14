@@ -1,16 +1,15 @@
-import GotInput from './GotInput';
-import Input from './Input';
+import Input, { InputData } from './Input';
 
 export default class StdinInput implements Input {
-	buffer: GotInput[];
-	promises: ((e: GotInput) => void)[];
+	buffer: InputData[];
+	promises: ((e: InputData) => void)[];
+	ready: () => void;
 
 	constructor() {
 		this.buffer = [];
 		this.promises = [];
 
-		process.stdin.setEncoding('ascii');
-		process.stdin.on('readable', () => {
+		this.ready = () => {
 			while (true) {
 				const byte = process.stdin.read(1);
 				if (byte === null) break;
@@ -20,7 +19,10 @@ export default class StdinInput implements Input {
 				if (p) p(e);
 				else this.buffer.push(e);
 			}
-		});
+		};
+
+		process.stdin.setEncoding('ascii');
+		process.stdin.on('readable', this.ready);
 	}
 
 	get keyq() {
@@ -29,16 +31,22 @@ export default class StdinInput implements Input {
 
 	key() {
 		if (this.keyq) {
-			const key = this.buffer.shift() as GotInput;
+			const key = this.buffer.shift() as InputData;
 			return Promise.resolve(key);
 		}
 
-		return new Promise<GotInput>(resolve => {
+		return new Promise<InputData>(resolve => {
 			this.promises.push(resolve);
 		});
 	}
 
-	private toEvent(key: string): GotInput {
+	close() {
+		process.stdin.off('readable', this.ready);
+		this.promises.forEach(p => p({ key: '', code: 0 }));
+		this.promises = [];
+	}
+
+	private toEvent(key: string): InputData {
 		const e = { key, code: key.charCodeAt(0) };
 		// console.log('toEvent', e);
 		return e;

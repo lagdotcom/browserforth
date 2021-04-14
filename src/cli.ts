@@ -14,8 +14,10 @@ f.initialise().then(async () => {
 		const { key } = await input.key();
 		if (key === '\r' || key === '\n') {
 			if (buffer.toLowerCase() === 'quit') {
-				// TODO: how to do this lol
-				process.stdin.end();
+				input.close();
+
+				// TODO: fix this lol
+				output.type('(hit enter again)');
 				return;
 			}
 

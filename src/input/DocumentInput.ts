@@ -1,10 +1,9 @@
-import GotInput from './GotInput';
-import Input from './Input';
+import Input, { InputData } from './Input';
 
 export default class DocumentInput implements Input {
 	el: HTMLDivElement;
-	events: GotInput[];
-	promises: ((e: GotInput) => void)[];
+	events: InputData[];
+	promises: ((e: InputData) => void)[];
 
 	constructor() {
 		this.events = [];
@@ -25,18 +24,20 @@ export default class DocumentInput implements Input {
 		this.status();
 	}
 
+	close() {}
+
 	get keyq() {
 		return this.events.length > 0;
 	}
 
 	key() {
 		if (this.keyq) {
-			const e = this.events.shift() as GotInput;
+			const e = this.events.shift() as InputData;
 			this.status();
 			return Promise.resolve(e);
 		}
 
-		return new Promise<GotInput>(resolve => {
+		return new Promise<InputData>(resolve => {
 			this.promises.push(resolve);
 			this.status();
 		});
@@ -46,7 +47,7 @@ export default class DocumentInput implements Input {
 		this.el.textContent = `${this.events.length} keys in buffer, ${this.promises.length} words waiting for input`;
 	}
 
-	private toEvent(kp: KeyboardEvent): GotInput {
+	private toEvent(kp: KeyboardEvent): InputData {
 		// TODO: deprecated
 		const e = { key: kp.key, code: kp.charCode };
 		// console.log('toEvent', e);
